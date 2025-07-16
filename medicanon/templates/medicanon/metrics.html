@@ -1,0 +1,31 @@
+{% extends 'medicanon/base.html' %}
+{% block title %}Métriques{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto mt-8 p-6 bg-white rounded-lg shadow">
+    <h1 class="text-2xl font-bold text-medic-blue text-center mb-6">Métriques</h1>
+    <div class="overflow-auto border rounded">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-4 py-2 text-left font-medium text-gray-700">Fichier</th>
+                    <th class="px-4 py-2 text-left font-medium text-gray-700">Lignes Traitées</th>
+                    <th class="px-4 py-2 text-left font-medium text-gray-700">Colonnes Anonymisées</th>
+                    <th class="px-4 py-2 text-left font-medium text-gray-700">Taux</th>
+                    <th class="px-4 py-2 text-left font-medium text-gray-700">Score Sécurité</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for metrique in metriques %}
+                <tr>
+                    <td class="px-4 py-2">{{ metrique.historique.fichier.nom_fichier }}</td>
+                    <td class="px-4 py-2">{{ metrique.lignes_traitees }}</td>
+                    <td class="px-4 py-2">{{ metrique.colonnes_anonymisees }}</td>
+                    <td class="px-4 py-2">{{ metrique.taux_anonymisation }}%</td>
+                    <td class="px-4 py-2">{{ metrique.score_securite }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'medicanon/base.html' %}
+{% block title %}Accueil{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto text-center mt-16 px-4">
+    <h1 class="text-3xl md:text-4xl font-bold mb-4 text-medic-blue">Anonymisation de Données Médicales</h1>
+    <p class="text-gray-600 mb-8">
+        Plateforme sécurisée pour l'anonymisation de données de santé, conforme RGPD et CDP Sénégal.
+        Facilitez vos recherches médicales et analyses épidémiologiques en toute sécurité.
+    </p>
+    <div class="flex justify-center space-x-4">
+        <a href="{% url 'login' %}" class="bg-medic-blue text-white px-6 py-3 rounded-lg hover:bg-medic-blue-dark transition">
+            Espace Agent
+        </a>
+        <a href="{% url 'public_hub' %}" class="bg-medic-lime text-white px-6 py-3 rounded-lg hover:bg-green-600 transition">
+            Hub Public
+        </a>
+    </div>
+</div>
+{% endblock %}

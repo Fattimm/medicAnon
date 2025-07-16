@@ -1,0 +1,480 @@
+{% extends 'medicanon/base.html' %}
+{% block title %}Anonymisation{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto mt-8 p-6 bg-white rounded-lg shadow">
+    <h1 class="text-2xl font-bold text-medic-blue text-center mb-6">Anonymisation des Données Médicales</h1>
+    <p class="text-center text-gray-600 text-sm mb-6">
+        Importez un fichier puis suivez les étapes pour l'anonymisation en respectant le RGPD et la CDP Sénégal.
+    </p>
+
+    <!-- Chaîne d'Étapes -->
+    <div class="flex justify-between mb-6">
+        <div class="flex-1 text-center">
+            <div
+                class="w-8 h-8 bg-medic-blue text-white rounded-full flex items-center justify-center mx-auto {% if step >= 1 %}bg-green-500{% else %}bg-gray-300{% endif %}">
+                1</div>
+            <p class="mt-2 text-sm {% if step >= 1 %}text-green-500{% else %}text-gray-500{% endif %}">Importation</p>
+        </div>
+        <div class="w-px bg-gray-300 h-10 mx-4"></div>
+        <div class="flex-1 text-center">
+            <div
+                class="w-8 h-8 bg-medic-blue text-white rounded-full flex items-center justify-center mx-auto {% if step >= 2 %}bg-green-500{% else %}bg-gray-300{% endif %}">
+                2</div>
+            <p class="mt-2 text-sm {% if step >= 2 %}text-green-500{% else %}text-gray-500{% endif %}">Configuration</p>
+        </div>
+        <div class="w-px bg-gray-300 h-10 mx-4"></div>
+        <div class="flex-1 text-center">
+            <div
+                class="w-8 h-8 bg-medic-blue text-white rounded-full flex items-center justify-center mx-auto {% if step >= 3 %}bg-green-500{% else %}bg-gray-300{% endif %}">
+                3</div>
+            <p class="mt-2 text-sm {% if step >= 3 %}text-green-500{% else %}text-gray-500{% endif %}">Aperçu &
+                Traitement</p>
+        </div>
+        <div class="w-px bg-gray-300 h-10 mx-4"></div>
+        <div class="flex-1 text-center">
+            <div
+                class="w-8 h-8 bg-medic-blue text-white rounded-full flex items-center justify-center mx-auto {% if step >= 4 %}bg-green-500{% else %}bg-gray-300{% endif %}">
+                4</div>
+            <p class="mt-2 text-sm {% if step >= 4 %}text-green-500{% else %}text-gray-500{% endif %}">Score & Export
+            </p>
+        </div>
+        <div class="w-px bg-gray-300 h-10 mx-4"></div>
+        <div class="flex-1 text-center">
+            <div
+                class="w-8 h-8 bg-medic-blue text-white rounded-full flex items-center justify-center mx-auto {% if step >= 5 %}bg-green-500{% else %}bg-gray-300{% endif %}">
+                5</div>
+            <p class="mt-2 text-sm {% if step >= 5 %}text-green-500{% else %}text-gray-500{% endif %}">Historique</p>
+        </div>
+    </div>
+
+    <!-- Étape 1 : Importation -->
+    {% if step == 1 %}
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold text-medic-blue mb-4">Étape 1 : Importation</h2>
+        <p class="text-gray-600 mb-4">Formats supportés : CSV, PDF, DOCX. Standards médicaux (optionnel) : FHIR, HL7.
+        </p>
+        <form id="upload-form" method="post" enctype="multipart/form-data"
+            class="flex flex-col items-center justify-center border-2 border-dashed border-medic-blue rounded-lg p-6 hover:bg-gray-50 transition">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="{{ step|default:1 }}">
+            <input type="file" name="fichier" id="file-input" accept=".csv,.pdf,.docx" required class="hidden">
+            <p id="dropzone-text" class="text-center text-gray-600">Glissez-déposez votre fichier ici ou cliquez pour
+                sélectionner.</p>
+            {% if uploaded_file %}
+            <div class="flex items-center justify-center mt-4">
+                <span class="text-sm text-gray-700">{{ uploaded_file.nom_fichier }} ({{ uploaded_file.extension
+                    }})</span>
+                <button type="button" id="cancel-upload" class="ml-2 text-red-500 hover:text-red-700">×</button>
+            </div>
+            {% endif %}
+            <button type="submit"
+                class="mt-4 bg-medic-blue text-white p-2 rounded hover:bg-medic-blue-dark w-full max-w-xs">Importer</button>
+            {% if uploaded_file %}
+            <button type="button" id="next-step"
+                class="mt-4 bg-green-500 text-white p-2 rounded hover:bg-green-600 w-full max-w-xs"
+                data-fichier-id="{{ uploaded_file.id }}">Passer à l'étape suivante</button>
+            {% endif %}
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Étape 2 : Configuration -->
+    {% if step == 2 %}
+    <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-medic-blue">Étape 2 : Configuration de l'Anonymisation</h2>
+            <button type="button" id="prev-step" class="text-medic-blue hover:underline">Retour</button>
+        </div>
+        {% if uploaded_file %}
+        <form method="post" class="grid grid-cols-1 md:grid-cols-2 gap-4" id="config-form">
+            {% csrf_token %}
+            <input type="hidden" name="from_config" value="1">
+            <input type="hidden" name="fichier_id" value="{{ fichier_id }}">
+            <div>
+                <p class="text-gray-700 mb-4">Fichier sélectionné : {{ uploaded_file.nom_fichier }} ({{
+                    uploaded_file.extension }})</p>
+            </div>
+            <div>
+                <h3 class="text-lg font-medium mb-2">Types d'Anonymisation</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-4 bg-gray-50 rounded-lg shadow">
+                        <h4 class="font-semibold">Suppression</h4>
+                        <p class="text-sm text-gray-600">Élimine les IPI. Niveau : Faible</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg shadow">
+                        <h4 class="font-semibold">Pseudonymisation</h4>
+                        <p class="text-sm text-gray-600">Remplace par ID unique. Niveau : Moyen</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg shadow">
+                        <h4 class="font-semibold">Généralisation</h4>
+                        <p class="text-sm text-gray-600">Regroupe les données. Niveau : Élevé</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 rounded-lg shadow">
+                        <h4 class="font-semibold">Hachage</h4>
+                        <p class="text-sm text-gray-600">Chiffre les données. Niveau : Élevé</p>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-lg font-medium mb-2">Informations Personnelles Identifiables (IPI)</h3>
+                {% if ipi_fields %}
+                <div class="space-y-2">
+                    {% for field in ipi_fields %}
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" name="ipi_fields" value="{{ field }}" class="accent-medic-blue"
+                            id="field_{{ forloop.counter }}">
+                        <label for="field_{{ forloop.counter }}">{{ field }}</label>
+                        <select name="method_{{ field }}" class="ml-2 p-1 border rounded">
+                            <option value="none">Aucune</option>
+                            <option value="suppression">Suppression</option>
+                            <option value="pseudonymisation">Pseudonymisation</option>
+                            <option value="generalisation">Généralisation</option>
+                            <option value="hachage">Hachage</option>
+                        </select>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p class="mt-2 text-sm text-gray-600">Score de sensibilité : {{ sensitivity_score }}%</p>
+                {% else %}
+                <p class="text-gray-600">Aucun champ IPI détecté dans ce fichier.</p>
+                {% endif %}
+            </div>
+            <div class="col-span-2 flex gap-4">
+                {% if ipi_fields %}
+                <button type="submit"
+                    class="bg-green-500 text-white p-2 rounded hover:bg-green-600 w-full max-w-xs">Passer à l'étape
+                    suivante</button>
+                {% else %}
+                <div class="text-center">
+                    <p class="text-red-500 mb-2">Impossible de continuer sans champs IPI détectés.</p>
+                    <button type="button" onclick="window.location.href='?step=1'"
+                        class="bg-medic-blue text-white p-2 rounded hover:bg-medic-blue-dark w-full max-w-xs">
+                        Retour à l'étape 1
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </form>
+        {% else %}
+        <div class="text-center">
+            <p class="text-gray-600">Aucun fichier sélectionné.</p>
+            <button type="button" onclick="window.location.href='?step=1'"
+                class="mt-4 bg-medic-blue text-white p-2 rounded hover:bg-medic-blue-dark">
+                Retour à l'étape 1
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Étape 3 : Aperçu & Traitement -->
+    {% if step == 3 %}
+    <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-medic-blue">Étape 3 : Aperçu & Traitement</h2>
+            <button type="button" onclick="window.location.href='?step=2&fichier_id={{ fichier_id }}'" class="text-medic-blue hover:underline">Retour</button>
+        </div>
+        {% if headers and original and anonymized %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <h3 class="text-lg font-semibold text-medic-blue mb-2 text-center">Données Originales</h3>
+                <div class="overflow-auto border rounded max-h-96">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                {% for header in headers %}
+                                <th class="px-4 py-2 text-left font-medium text-gray-700">{{ header }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            {% for row in original|slice:":5" %}
+                            <tr>
+                                {% for cell in row %}
+                                <td class="px-4 py-2 text-gray-600">{{ cell }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold text-medic-blue mb-2 text-center">Données Anonymisées</h3>
+                <div class="overflow-auto border rounded max-h-96">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                {% for header in headers %}
+                                <th class="px-4 py-2 text-left font-medium text-gray-700">{{ header }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            {% for row in anonymized|slice:":5" %}
+                            <tr>
+                                {% for cell in row %}
+                                <td class="px-4 py-2 text-gray-600">{{ cell }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 text-center">
+            <p class="text-sm text-gray-600">Statistiques : {{ lignes_traitees }} lignes traitées, {{
+                colonnes_anonymisees }} colonnes anonymisées, Taux d'anonymisation : {{ taux_anonymisation|floatformat:2 }}%</p>
+
+            <!-- Formulaire pour lancer l'anonymisation -->
+            <form id="anonymize-form" method="post" class="mt-4">
+                {% csrf_token %}
+                <input type="hidden" name="from_anonymize" value="1">
+                <input type="hidden" name="fichier_id" value="{{ fichier_id }}">
+
+                <button type="submit" class="bg-medic-blue text-white p-2 rounded hover:bg-medic-blue-dark">
+                    Lancer l'Anonymisation
+                </button>
+            </form>
+        </div>
+        {% else %}
+        <div class="text-center">
+            <p class="text-gray-600">Aucune donnée à afficher. Veuillez revenir à l'étape précédente.</p>
+            <button type="button" onclick="window.location.href='?step=2&fichier_id={{ fichier_id }}'"
+                class="mt-4 bg-medic-blue text-white p-2 rounded hover:bg-medic-blue-dark">
+                Retour à l'étape 2
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Étape 4 : Score & Export -->
+    {% if step == 4 %}
+    <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-medic-blue">Étape 4 : Score & Export</h2>
+            <button type="button" onclick="window.location.href='?step=3&fichier_id={{ fichier_id }}'" class="text-medic-blue hover:underline">Retour</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Métriques -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="text-lg font-semibold mb-4">Métriques d'Anonymisation</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span>Lignes traitées:</span>
+                        <span class="font-medium">{{ lignes_traitees }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Colonnes anonymisées:</span>
+                        <span class="font-medium">{{ colonnes_anonymisees }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Taux d'anonymisation:</span>
+                        <span class="font-medium">{{ taux_anonymisation|floatformat:2 }}%</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Score de sécurité:</span>
+                        <span class="font-medium">{{ score_securite|floatformat:0 }}/100</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Conformité -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="text-lg font-semibold mb-4">Rapport de Conformité</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span>Analyse des risques:</span>
+                        <span class="font-medium">{{ analyse_risques }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Conformité RGPD/CDP:</span>
+                        <span class="font-medium text-green-600">{{ conformite }}</span>
+                    </div>
+                    <div class="mt-4">
+                        <p class="text-sm text-gray-600">
+                            <strong>Recommandations:</strong> {{ recommandations }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export -->
+        <div class="mt-6 text-center">
+            <form method="post" class="inline-block">
+                {% csrf_token %}
+                <input type="hidden" name="from_export" value="1">
+                <input type="hidden" name="fichier_id" value="{{ fichier_id }}">
+                <div class="flex flex-col items-center space-y-4">
+                    <div class="flex items-center space-x-4">
+                        <label for="format" class="text-sm font-medium">Format d'export:</label>
+                        <select name="format" id="format" class="p-2 border rounded">
+                            <option value="csv">CSV</option>
+                            <option value="json">JSON</option>
+                            <option value="pdf">PDF</option>
+                            <option value="docx">DOCX</option>
+                        </select>
+                    </div>
+                    <label class="flex items-center space-x-2">
+                        <input type="checkbox" name="share_hub" value="1" class="accent-medic-blue">
+                        <span>Partager dans le Hub public</span>
+                    </label>
+                    <button type="submit"
+                        class="bg-medic-blue text-white px-6 py-2 rounded hover:bg-medic-blue-dark">
+                        Exporter & Sauvegarder
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Étape 5 : Historique -->
+    {% if step == 5 %}
+    <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-medic-blue">Étape 5 : Historique</h2>
+            <button type="button" onclick="window.location.href='?step=4&fichier_id={{ fichier_id }}'" class="text-medic-blue hover:underline">Retour</button>
+        </div>
+        <div class="mb-4 flex space-x-4">
+            <input type="text" placeholder="Rechercher..." class="p-2 border rounded flex-1 max-w-xs"
+                name="search">
+            <select name="statut" class="p-2 border rounded">
+                <option value="">Tous les statuts</option>
+                <option value="Anonymisé">Anonymisé</option>
+                <option value="Importé">Importé</option>
+            </select>
+        </div>
+        <div class="overflow-auto border rounded">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-4 py-2 text-left font-medium text-gray-700">Nom Fichier</th>
+                        <th class="px-4 py-2 text-left font-medium text-gray-700">Date Anonymisation</th>
+                        <th class="px-4 py-2 text-left font-medium text-gray-700">Score</th>
+                        <th class="px-4 py-2 text-left font-medium text-gray-700">Méthode</th>
+                        <th class="px-4 py-2 text-left font-medium text-gray-700">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for fichier in fichiers %}
+                    {% if fichier.statut == 'Anonymisé' %}
+                    <tr>
+                        <td class="px-4 py-2">{{ fichier.nom_fichier }}</td>
+                        <td class="px-4 py-2">{{ fichier.date_import|date:"d/m/Y H:i" }}</td>
+                        <td class="px-4 py-2">{{ score_securite|floatformat:0 }}/100</td>
+                        <td class="px-4 py-2">Anonymisé</td>
+                        <td class="px-4 py-2">
+                            <a href="{% url 'download_anonymized' fichier.id %}"
+                                class="text-blue-500 hover:underline">Télécharger</a>
+                            <a href="{% url 'anonymize_result' fichier.id %}" class="ml-2 text-blue-500 hover:underline">Explorer</a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-2 text-center text-gray-500">Aucun fichier anonymisé trouvé</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    // Gestion de l'upload par drag & drop
+    const dropzoneForm = document.getElementById('upload-form');
+    const fileInput = document.getElementById('file-input');
+    const dropzoneText = document.getElementById('dropzone-text');
+    const cancelUpload = document.getElementById('cancel-upload');
+
+    if (dropzoneForm) {
+        dropzoneForm.addEventListener('click', (e) => {
+            if (e.target.type !== 'submit') {
+                fileInput.click();
+            }
+        });
+
+        dropzoneForm.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzoneForm.classList.add('bg-gray-100');
+        });
+
+        dropzoneForm.addEventListener('dragleave', () => {
+            dropzoneForm.classList.remove('bg-gray-100');
+        });
+
+        dropzoneForm.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzoneForm.classList.remove('bg-gray-100');
+            fileInput.files = e.dataTransfer.files;
+            if (fileInput.files.length > 0) {
+                dropzoneForm.submit();
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                dropzoneForm.submit();
+            }
+        });
+    }
+
+    // Gestion du bouton "Passer à l'étape suivante" pour l'étape 1
+    document.querySelectorAll('#next-step').forEach(button => {
+        button.addEventListener('click', () => {
+            const fichierId = button.getAttribute('data-fichier-id');
+            window.location.href = `?step=2&fichier_id=${fichierId}`;
+        });
+    });
+
+    // Gestion du bouton Cancel Upload
+    if (cancelUpload) {
+        cancelUpload.addEventListener('click', () => {
+            fileInput.value = '';
+            dropzoneText.textContent = 'Glissez-déposez votre fichier ici ou cliquez pour sélectionner.';
+            const uploadedFileDiv = document.querySelector('#upload-form div.flex');
+            if (uploadedFileDiv) {
+                uploadedFileDiv.remove();
+            }
+            // Rediriger vers l'étape 1 sans fichier
+            window.location.href = '?step=1';
+        });
+    }
+
+    // Validation du formulaire de configuration (étape 2)
+    const configForm = document.getElementById('config-form');
+    if (configForm) {
+        configForm.addEventListener('submit', (e) => {
+            const checkedFields = configForm.querySelectorAll('input[name="ipi_fields"]:checked');
+            if (checkedFields.length === 0) {
+                e.preventDefault();
+                alert('Veuillez sélectionner au moins un champ IPI à anonymiser.');
+                return false;
+            }
+            
+            // Vérifier qu'une méthode est sélectionnée pour chaque champ coché
+            let hasMethod = true;
+            checkedFields.forEach(field => {
+                const methodSelect = configForm.querySelector(`select[name="method_${field.value}"]`);
+                if (!methodSelect || methodSelect.value === 'none') {
+                    hasMethod = false;
+                }
+            });
+            
+            if (!hasMethod) {
+                e.preventDefault();
+                alert('Veuillez sélectionner une méthode d\'anonymisation pour chaque champ coché.');
+                return false;
+            }
+        });
+    }
+</script>
+{% endblock %}

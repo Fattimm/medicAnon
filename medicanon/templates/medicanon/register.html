@@ -1,0 +1,44 @@
+{% extends 'medicanon/base.html' %}
+{% block title %}Inscription{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto bg-white rounded-lg shadow p-6 mt-10">
+    <h1 class="text-2xl font-bold text-center mb-4">Inscription Visiteur</h1>
+    <p class="text-center text-sm mb-4 text-gray-600">Créez votre compte Visiteur pour télécharger des fichiers anonymisés.</p>
+
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div>
+            <label for="id_first_name" class="block text-sm">Prénom</label>
+            {{ form.first_name }}
+            {{ form.first_name.errors }}
+        </div>
+        <div>
+            <label for="id_last_name" class="block text-sm">Nom</label>
+            {{ form.last_name }}
+            {{ form.last_name.errors }}
+        </div>
+        <div>
+            <label for="id_email" class="block text-sm">Email</label>
+            {{ form.email }}
+            {{ form.email.errors }}
+        </div>
+        <div>
+            <label for="id_password1" class="block text-sm">Mot de passe</label>
+            {{ form.password1 }}
+            {{ form.password1.errors }}
+        </div>
+        <div>
+            <label for="id_password2" class="block text-sm">Confirmer le mot de passe</label>
+            {{ form.password2 }}
+            {{ form.password2.errors }}
+        </div>
+
+        <button type="submit" class="w-full bg-medic-blue text-white py-2 rounded hover:bg-medic-blue-dark transition">
+            Créer mon compte
+        </button>
+    </form>
+</div>
+{% endblock %}

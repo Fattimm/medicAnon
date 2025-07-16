@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# Environnement virtuel
+venv/
+env/
+
+# fichiers de configuration
+*.env
+*.DS_Store
+*.log
+
+# Dossiers de dépendances
+node_modules/

@@ -1,0 +1,59 @@
+{% extends 'medicanon/base.html' %}
+{% block title %}Résultat de l'Anonymisation{% endblock %}
+{% block content %}
+<div class="max-w-6xl mx-auto mt-8 p-6 bg-white rounded-lg shadow">
+    <h1 class="text-2xl font-bold text-medic-blue text-center mb-6">Résultat de l'Anonymisation</h1>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <h3 class="text-lg font-semibold text-medic-blue mb-2 text-center">Données Originales</h3>
+            <div class="overflow-auto border rounded">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            {% for header in headers %}
+                            <th class="px-4 py-2 text-left font-medium text-gray-700">{{ header }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for row in original %}
+                        <tr>
+                            {% for cell in row %}
+                            <td class="px-4 py-2 text-gray-600">{{ cell }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div>
+            <h3 class="text-lg font-semibold text-medic-blue mb-2 text-center">Données Anonymisées</h3>
+            <div class="overflow-auto border rounded">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            {% for header in headers %}
+                            <th class="px-4 py-2 text-left font-medium text-gray-700">{{ header }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for row in anonymized %}
+                        <tr>
+                            {% for cell in row %}
+                            <td class="px-4 py-2 text-gray-600">{{ cell }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="mt-4 text-center">
+        <p class="text-sm text-gray-600">Statistiques : {{ lignes_traitees }} lignes traitées, {{ colonnes_anonymisees }} colonnes anonymisées, Taux : {{ taux_anonymisation }}%</p>
+        <a href="{% url 'download_anonymized' fichier.id %}" class="bg-medic-blue text-white p-2 rounded hover:bg-medic-blue-dark mt-4 inline-block">Télécharger</a>
+    </div>
+</div>
+{% endblock %}

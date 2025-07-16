@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedicAnon - {% block title %}Accueil{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'medicanon/css/output.css' %}">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+
+<body class="bg-medic-gray font-sans min-h-screen flex flex-col">
+
+    <nav class="bg-medic-blue text-white p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold">MedicAnon</h1>
+            <ul class="flex space-x-4 items-center">
+                <li>
+                    <a href="{% url 'accueil' %}"
+                        class="block p-2 rounded transition-all {% if request.path == '/' %}bg-medic-blue-dark text-white{% else %}hover:scale-105{% endif %}">
+                        Accueil
+                    </a>
+                </li>
+                <li><a href="{% url 'public_hub' %}" class="hover:underline">Hub Public</a></li>
+                {% if user.is_authenticated %}
+                {% if user.role == 'Administrateur' %}
+                <li><a href="{% url 'manage_users' %}" class="hover:underline">Gérer Utilisateurs</a></li>
+                {% endif %}
+                {% if user.role == 'Agent' or user.role == 'Administrateur' %}
+                <li><a href="{% url 'anonymize' %}" class="hover:underline">Anonymiser</a></li>
+                <li><a href="{% url 'metrics' %}" class="hover:underline">Métriques</a></li>
+                <li><a href="{% url 'compliance_report' %}" class="hover:underline">Rapports</a></li>
+                {% endif %}
+                <li><a href="{% url 'logout' %}" class="hover:underline">Déconnexion</a></li>
+                {% else %}
+                <li><a href="{% url 'register' %}" class="hover:underline">S'inscrire</a></li>
+                <li><a href="{% url 'login' %}" class="hover:underline">Connexion</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <main class="flex-1 p-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-medic-blue text-white p-4 text-center">
+        © 2025 MedicAnon - Tous droits réservés
+    </footer>
+
+</body>
+
+</html>
