@@ -8,473 +8,1067 @@
         Importez un fichier puis suivez les étapes pour l'anonymisation en respectant le RGPD et la CDP Sénégal.
     </p>
 
-    <!-- Chaîne d'Étapes -->
-    <div class="flex justify-between mb-6">
-        <div class="flex-1 text-center">
-            <div
-                class="w-8 h-8 bg-medic-blue text-white rounded-full flex items-center justify-center mx-auto {% if step >= 1 %}bg-green-500{% else %}bg-gray-300{% endif %}">
-                1</div>
-            <p class="mt-2 text-sm {% if step >= 1 %}text-green-500{% else %}text-gray-500{% endif %}">Importation</p>
-        </div>
-        <div class="w-px bg-gray-300 h-10 mx-4"></div>
-        <div class="flex-1 text-center">
-            <div
-                class="w-8 h-8 bg-medic-blue text-white rounded-full flex items-center justify-center mx-auto {% if step >= 2 %}bg-green-500{% else %}bg-gray-300{% endif %}">
-                2</div>
-            <p class="mt-2 text-sm {% if step >= 2 %}text-green-500{% else %}text-gray-500{% endif %}">Configuration</p>
-        </div>
-        <div class="w-px bg-gray-300 h-10 mx-4"></div>
-        <div class="flex-1 text-center">
-            <div
-                class="w-8 h-8 bg-medic-blue text-white rounded-full flex items-center justify-center mx-auto {% if step >= 3 %}bg-green-500{% else %}bg-gray-300{% endif %}">
-                3</div>
-            <p class="mt-2 text-sm {% if step >= 3 %}text-green-500{% else %}text-gray-500{% endif %}">Aperçu &
-                Traitement</p>
-        </div>
-        <div class="w-px bg-gray-300 h-10 mx-4"></div>
-        <div class="flex-1 text-center">
-            <div
-                class="w-8 h-8 bg-medic-blue text-white rounded-full flex items-center justify-center mx-auto {% if step >= 4 %}bg-green-500{% else %}bg-gray-300{% endif %}">
-                4</div>
-            <p class="mt-2 text-sm {% if step >= 4 %}text-green-500{% else %}text-gray-500{% endif %}">Score & Export
-            </p>
-        </div>
-        <div class="w-px bg-gray-300 h-10 mx-4"></div>
-        <div class="flex-1 text-center">
-            <div
-                class="w-8 h-8 bg-medic-blue text-white rounded-full flex items-center justify-center mx-auto {% if step >= 5 %}bg-green-500{% else %}bg-gray-300{% endif %}">
-                5</div>
-            <p class="mt-2 text-sm {% if step >= 5 %}text-green-500{% else %}text-gray-500{% endif %}">Historique</p>
-        </div>
-    </div>
-
-    <!-- Étape 1 : Importation -->
-    {% if step == 1 %}
-    <div class="mb-8">
-        <h2 class="text-xl font-semibold text-medic-blue mb-4">Étape 1 : Importation</h2>
-        <p class="text-gray-600 mb-4">Formats supportés : CSV, PDF, DOCX. Standards médicaux (optionnel) : FHIR, HL7.
-        </p>
-        <form id="upload-form" method="post" enctype="multipart/form-data"
-            class="flex flex-col items-center justify-center border-2 border-dashed border-medic-blue rounded-lg p-6 hover:bg-gray-50 transition">
-            {% csrf_token %}
-            <input type="hidden" name="step" value="{{ step|default:1 }}">
-            <input type="file" name="fichier" id="file-input" accept=".csv,.pdf,.docx" required class="hidden">
-            <p id="dropzone-text" class="text-center text-gray-600">Glissez-déposez votre fichier ici ou cliquez pour
-                sélectionner.</p>
-            {% if uploaded_file %}
-            <div class="flex items-center justify-center mt-4">
-                <span class="text-sm text-gray-700">{{ uploaded_file.nom_fichier }} ({{ uploaded_file.extension
-                    }})</span>
-                <button type="button" id="cancel-upload" class="ml-2 text-red-500 hover:text-red-700">×</button>
+    <!-- Indicateur de conformité RGPD/CDP -->
+    {% if step >= 2 %}
+    <div class="mb-6 p-4 bg-blue-50 border-l-4 border-blue-400 rounded">
+        <div class="flex items-center">
+            <svg class="w-6 h-6 text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.5 1L17.5 7 22 5.5l-3.5-1.5-1.5-3.5"></path>
+            </svg>
+            <div>
+                <h3 class="text-sm font-medium text-blue-800">Conformité Réglementaire</h3>
+                <p class="text-xs text-blue-600">Traitement conforme aux exigences RGPD (UE) et CDP (Sénégal)</p>
             </div>
-            {% endif %}
-            <button type="submit"
-                class="mt-4 bg-medic-blue text-white p-2 rounded hover:bg-medic-blue-dark w-full max-w-xs">Importer</button>
-            {% if uploaded_file %}
-            <button type="button" id="next-step"
-                class="mt-4 bg-green-500 text-white p-2 rounded hover:bg-green-600 w-full max-w-xs"
-                data-fichier-id="{{ uploaded_file.id }}">Passer à l'étape suivante</button>
-            {% endif %}
-        </form>
+        </div>
     </div>
     {% endif %}
 
-    <!-- Étape 2 : Configuration -->
+    <!-- Chaîne d'Étapes améliorée -->
+    <div class="flex justify-between mb-8">
+        {% for etape_num in "12345" %}
+        <div class="flex-1 relative">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium
+                    {% if step >= etape_num|add:0 %}
+                        bg-green-500 text-white
+                    {% elif step == etape_num|add:0|add:-1 %}
+                        bg-medic-blue text-white
+                    {% else %}
+                        bg-gray-300 text-gray-600
+                    {% endif %}">
+                    {% if step > etape_num|add:0 %}
+                        ✓
+                    {% else %}
+                        {{ etape_num }}
+                    {% endif %}
+                </div>
+                {% if etape_num != "5" %}
+                <div class="flex-1 h-0.5 mx-2
+                    {% if step > etape_num|add:0 %}
+                        bg-green-500
+                    {% else %}
+                        bg-gray-300
+                    {% endif %}"></div>
+                {% endif %}
+            </div>
+            <div class="mt-2 text-center">
+                <p class="text-xs font-medium
+                    {% if step >= etape_num|add:0 %}text-green-600
+                    {% elif step == etape_num|add:0|add:-1 %}text-medic-blue
+                    {% else %}text-gray-500{% endif %}">
+                    {% if etape_num == "1" %}Importation
+                    {% elif etape_num == "2" %}Configuration
+                    {% elif etape_num == "3" %}Aperçu & Traitement
+                    {% elif etape_num == "4" %}Score & Export
+                    {% else %}Historique{% endif %}
+                </p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Messages d'alerte améliorés -->
+    {% if messages %}
+    <div class="mb-6">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} p-4 mb-4 rounded-lg border-l-4
+            {% if message.tags == 'error' %}bg-red-50 border-red-400 text-red-700
+            {% elif message.tags == 'warning' %}bg-yellow-50 border-yellow-400 text-yellow-700
+            {% elif message.tags == 'success' %}bg-green-50 border-green-400 text-green-700
+            {% else %}bg-blue-50 border-blue-400 text-blue-700{% endif %}">
+            <div class="flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {% if message.tags == 'error' %}
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    {% elif message.tags == 'success' %}
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    {% else %}
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    {% endif %}
+                </svg>
+                {{ message }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Étape 1 : Importation améliorée -->
+    {% if step == 1 %}
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold text-medic-blue mb-4">Étape 1 : Importation des Données</h2>
+        
+        <!-- Information sur les formats supportés -->
+        <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+            <h3 class="text-sm font-medium text-gray-800 mb-2">Formats supportés :</h3>
+            <div class="grid grid-cols-3 gap-4 text-sm">
+                <div class="flex items-center">
+                    <span class="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                    <span>CSV (Recommandé)</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
+                    <span>PDF</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="w-2 h-2 bg-purple-400 rounded-full mr-2"></span>
+                    <span>DOCX</span>
+                </div>
+            </div>
+            <p class="text-xs text-gray-600 mt-2">Standards médicaux supportés : FHIR, HL7 (optionnel)</p>
+        </div>
+
+        <!-- Zone de dépôt améliorée -->
+        <form id="upload-form" method="post" enctype="multipart/form-data"
+    class="relative border-2 border-dashed border-medic-blue rounded-xl p-8 text-center hover:bg-gray-50 transition-all duration-200">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="{{ step|default:1 }}">
+    
+    <!-- CORRECTION: Enlever required et hidden, utiliser opacity et position -->
+    <input type="file" name="fichier" id="file-input" accept=".csv,.pdf,.docx" 
+           style="position: absolute; opacity: 0; width: 1px; height: 1px; overflow: hidden;">
+    
+    <div id="upload-icon" class="mb-4">
+        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+    </div>
+    
+    <p id="dropzone-text" class="text-lg font-medium text-gray-700 mb-2">
+        Glissez-déposez votre fichier ici
+    </p>
+    <p class="text-sm text-gray-500 mb-4">ou cliquez pour sélectionner un fichier</p>
+    
+    {% if uploaded_file %}
+    <div class="flex items-center justify-center mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+        <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span class="text-sm text-green-700 font-medium">{{ uploaded_file.nom_fichier }}</span>
+        <span class="text-xs text-green-600 ml-2">({{ uploaded_file.extension|upper }})</span>
+        <button type="button" id="cancel-upload" class="ml-3 text-red-500 hover:text-red-700 text-lg">×</button>
+    </div>
+    {% endif %}
+    
+    <div class="mt-6 space-y-2">
+        <button type="submit" id="submit-btn" 
+                class="w-full sm:w-auto bg-medic-blue text-white px-6 py-3 rounded-lg hover:bg-medic-blue-dark transition-colors font-medium">
+            📤 Importer le fichier
+        </button>
+        
+        {% if uploaded_file %}
+        <button type="button" id="next-step" 
+            class="w-full sm:w-auto bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors font-medium ml-0 sm:ml-2"
+            data-fichier-id="{{ uploaded_file.id }}">
+            ➡️ Passer à l'étape suivante
+        </button>
+        {% endif %}
+    </div>
+</form>
+        <!-- Conseils de sécurité -->
+        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h3 class="text-sm font-medium text-yellow-800 mb-2">🔒 Conseils de sécurité :</h3>
+            <ul class="text-xs text-yellow-700 space-y-1">
+                <li>• Assurez-vous que le fichier ne contient que les données nécessaires</li>
+                <li>• Vérifiez que vous avez l'autorisation de traiter ces données</li>
+                <li>• Les données seront traitées localement et sécurisées</li>
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Étape 2 : Configuration améliorée -->
     {% if step == 2 %}
     <div class="mb-8">
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex justify-between items-center mb-6">
             <h2 class="text-xl font-semibold text-medic-blue">Étape 2 : Configuration de l'Anonymisation</h2>
-            <button type="button" id="prev-step" class="text-medic-blue hover:underline">Retour</button>
+            <button type="button" onclick="window.location.href='?step=1'" 
+                class="text-medic-blue hover:underline flex items-center">
+                ← Retour
+            </button>
         </div>
+
         {% if uploaded_file %}
-        <form method="post" class="grid grid-cols-1 md:grid-cols-2 gap-4" id="config-form">
+        <form method="post" id="config-form">
             {% csrf_token %}
             <input type="hidden" name="from_config" value="1">
             <input type="hidden" name="fichier_id" value="{{ fichier_id }}">
-            <div>
-                <p class="text-gray-700 mb-4">Fichier sélectionné : {{ uploaded_file.nom_fichier }} ({{
-                    uploaded_file.extension }})</p>
-            </div>
-            <div>
-                <h3 class="text-lg font-medium mb-2">Types d'Anonymisation</h3>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="p-4 bg-gray-50 rounded-lg shadow">
-                        <h4 class="font-semibold">Suppression</h4>
-                        <p class="text-sm text-gray-600">Élimine les IPI. Niveau : Faible</p>
-                    </div>
-                    <div class="p-4 bg-gray-50 rounded-lg shadow">
-                        <h4 class="font-semibold">Pseudonymisation</h4>
-                        <p class="text-sm text-gray-600">Remplace par ID unique. Niveau : Moyen</p>
-                    </div>
-                    <div class="p-4 bg-gray-50 rounded-lg shadow">
-                        <h4 class="font-semibold">Généralisation</h4>
-                        <p class="text-sm text-gray-600">Regroupe les données. Niveau : Élevé</p>
-                    </div>
-                    <div class="p-4 bg-gray-50 rounded-lg shadow">
-                        <h4 class="font-semibold">Hachage</h4>
-                        <p class="text-sm text-gray-600">Chiffre les données. Niveau : Élevé</p>
+            
+            <!-- Information sur le fichier -->
+            <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 class="text-sm font-medium text-blue-800 mb-2">📄 Fichier sélectionné :</h3>
+                <p class="text-blue-700">{{ uploaded_file.nom_fichier }} 
+                    <span class="text-xs bg-blue-200 px-2 py-1 rounded ml-2">{{ uploaded_file.extension|upper }}</span>
+                </p>
+                {% if sensitivity_score %}
+                <div class="mt-2">
+                    <span class="text-xs text-blue-600">Score de sensibilité détecté : </span>
+                    <span class="font-medium text-blue-800">{{ sensitivity_score }}%</span>
+                    <div class="w-full bg-blue-200 rounded-full h-2 mt-1">
+                        <div class="bg-blue-600 h-2 rounded-full" style="width: {{ sensitivity_score }}%"></div>
                     </div>
                 </div>
-            </div>
-            <div>
-                <h3 class="text-lg font-medium mb-2">Informations Personnelles Identifiables (IPI)</h3>
-                {% if ipi_fields %}
-                <div class="space-y-2">
-                    {% for field in ipi_fields %}
-                    <div class="flex items-center space-x-2">
-                        <input type="checkbox" name="ipi_fields" value="{{ field }}" class="accent-medic-blue"
-                            id="field_{{ forloop.counter }}">
-                        <label for="field_{{ forloop.counter }}">{{ field }}</label>
-                        <select name="method_{{ field }}" class="ml-2 p-1 border rounded">
-                            <option value="none">Aucune</option>
-                            <option value="suppression">Suppression</option>
-                            <option value="pseudonymisation">Pseudonymisation</option>
-                            <option value="generalisation">Généralisation</option>
-                            <option value="hachage">Hachage</option>
-                        </select>
-                    </div>
-                    {% endfor %}
-                </div>
-                <p class="mt-2 text-sm text-gray-600">Score de sensibilité : {{ sensitivity_score }}%</p>
-                {% else %}
-                <p class="text-gray-600">Aucun champ IPI détecté dans ce fichier.</p>
                 {% endif %}
             </div>
-            <div class="col-span-2 flex gap-4">
-                {% if ipi_fields %}
-                <button type="submit"
-                    class="bg-green-500 text-white p-2 rounded hover:bg-green-600 w-full max-w-xs">Passer à l'étape
-                    suivante</button>
-                {% else %}
-                <div class="text-center">
-                    <p class="text-red-500 mb-2">Impossible de continuer sans champs IPI détectés.</p>
-                    <button type="button" onclick="window.location.href='?step=1'"
-                        class="bg-medic-blue text-white p-2 rounded hover:bg-medic-blue-dark w-full max-w-xs">
-                        Retour à l'étape 1
-                    </button>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Méthodes d'anonymisation -->
+                <div>
+                    <h3 class="text-lg font-medium mb-4">🛡️ Méthodes d'Anonymisation</h3>
+                    <div class="grid grid-cols-1 gap-3">
+                        <div class="p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-lg border border-red-200">
+                            <h4 class="font-semibold text-red-800 flex items-center">
+                                🗑️ Suppression
+                                <span class="ml-2 text-xs bg-red-200 text-red-700 px-2 py-1 rounded">FORT</span>
+                            </h4>
+                            <p class="text-sm text-red-700 mt-1">Supprime complètement les données sensibles</p>
+                            <p class="text-xs text-red-600 mt-1">• Irréversible • Perte d'utilité maximale</p>
+                        </div>
+
+                        <div class="p-4 bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg border border-orange-200">
+                            <h4 class="font-semibold text-orange-800 flex items-center">
+                                🔐 Hachage
+                                <span class="ml-2 text-xs bg-orange-200 text-orange-700 px-2 py-1 rounded">FORT</span>
+                            </h4>
+                            <p class="text-sm text-orange-700 mt-1">Transforme les données en hash cryptographique</p>
+                            <p class="text-xs text-orange-600 mt-1">• Irréversible • Garde la cohérence</p>
+                        </div>
+
+                        <div class="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+                            <h4 class="font-semibold text-blue-800 flex items-center">
+                                🎭 Pseudonymisation
+                                <span class="ml-2 text-xs bg-blue-200 text-blue-700 px-2 py-1 rounded">MOYEN</span>
+                            </h4>
+                            <p class="text-sm text-blue-700 mt-1">Remplace par des identifiants uniques</p>
+                            <p class="text-xs text-blue-600 mt-1">• Réversible • Preserve l'utilité</p>
+                        </div>
+
+                        <div class="p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200">
+                            <h4 class="font-semibold text-green-800 flex items-center">
+                                📊 Généralisation
+                                <span class="ml-2 text-xs bg-green-200 text-green-700 px-2 py-1 rounded">MOYEN</span>
+                            </h4>
+                            <p class="text-sm text-green-700 mt-1">Regroupe en catégories moins précises</p>
+                            <p class="text-xs text-green-600 mt-1">• Irréversible • Garde la structure</p>
+                        </div>
+                    </div>
                 </div>
-                {% endif %}
+
+                <!-- Champs IPI détectés -->
+                <div>
+                    <h3 class="text-lg font-medium mb-4">🔍 Champs IPI Détectés</h3>
+                    {% if ipi_fields %}
+                    <div class="space-y-3 max-h-96 overflow-y-auto">
+                        {% for field in ipi_fields %}
+                        <div class="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                            <div class="flex items-start space-x-3">
+                                <input type="checkbox" name="ipi_fields" value="{{ field }}" 
+                                    class="mt-1 accent-medic-blue" id="field_{{ forloop.counter }}">
+                                <div class="flex-1">
+                                    <label for="field_{{ forloop.counter }}" class="font-medium text-gray-800 cursor-pointer">
+                                        {{ field }}
+                                    </label>
+                                    <select name="method_{{ field }}" 
+                                        class="mt-2 w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-medic-blue focus:border-transparent">
+                                        <option value="none">🚫 Aucune protection</option>
+                                        <option value="suppression">🗑️ Suppression</option>
+                                        <option value="pseudonymisation">🎭 Pseudonymisation</option>
+                                        <option value="generalisation">📊 Généralisation</option>
+                                        <option value="hachage">🔐 Hachage</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Résumé de la sélection -->
+                    <div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                        <h4 class="text-sm font-medium text-gray-800 mb-2">📋 Résumé :</h4>
+                        <div id="selection-summary" class="text-sm text-gray-600">
+                            Sélectionnez des champs pour voir le résumé
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6">
+                        {% if ipi_fields %}
+                        <button type="submit" 
+                            class="w-full bg-green-500 text-white py-3 px-4 rounded-lg hover:bg-green-600 transition-colors font-medium">
+                            ✨ Configurer l'anonymisation
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8">
+                        <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.445-5.103-3.479"></path>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-800 mb-2">Aucun champ IPI détecté</h3>
+                        <p class="text-gray-600 mb-4">Le fichier ne semble pas contenir de données personnelles identifiables.</p>
+                        <button type="button" onclick="window.location.href='?step=1'"
+                            class="bg-medic-blue text-white px-6 py-2 rounded-lg hover:bg-medic-blue-dark transition-colors">
+                            ← Choisir un autre fichier
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </form>
         {% else %}
-        <div class="text-center">
-            <p class="text-gray-600">Aucun fichier sélectionné.</p>
+        <div class="text-center py-12">
+            <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.445-5.103-3.479"></path>
+            </svg>
+            <h3 class="text-lg font-medium text-gray-800 mb-2">Aucun fichier sélectionné</h3>
+            <p class="text-gray-600 mb-4">Veuillez d'abord importer un fichier.</p>
             <button type="button" onclick="window.location.href='?step=1'"
-                class="mt-4 bg-medic-blue text-white p-2 rounded hover:bg-medic-blue-dark">
-                Retour à l'étape 1
+                class="bg-medic-blue text-white px-6 py-3 rounded-lg hover:bg-medic-blue-dark transition-colors">
+                ← Retour à l'importation
             </button>
         </div>
         {% endif %}
     </div>
     {% endif %}
 
-    <!-- Étape 3 : Aperçu & Traitement -->
+    <!-- Étape 3 : Aperçu & Traitement amélioré -->
     {% if step == 3 %}
     <div class="mb-8">
-        <div class="flex justify-between items-center mb-4">
+        <div class="flex justify-between items-center mb-6">
             <h2 class="text-xl font-semibold text-medic-blue">Étape 3 : Aperçu & Traitement</h2>
-            <button type="button" onclick="window.location.href='?step=2&fichier_id={{ fichier_id }}'" class="text-medic-blue hover:underline">Retour</button>
+            <button type="button" onclick="window.location.href='?step=2&fichier_id={{ fichier_id }}'" 
+                class="text-medic-blue hover:underline flex items-center">
+                ← Retour
+            </button>
         </div>
+
         {% if headers and original and anonymized %}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <h3 class="text-lg font-semibold text-medic-blue mb-2 text-center">Données Originales</h3>
-                <div class="overflow-auto border rounded max-h-96">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead class="bg-gray-100">
+        <!-- Statistiques avant traitement -->
+        <div class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h3 class="text-sm font-medium text-blue-800">📊 Lignes</h3>
+                <p class="text-2xl font-bold text-blue-900">{{ lignes_traitees }}</p>
+            </div>
+            <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h3 class="text-sm font-medium text-green-800">🔒 Colonnes anonymisées</h3>
+                <p class="text-2xl font-bold text-green-900">{{ colonnes_anonymisees }}</p>
+            </div>
+            <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <h3 class="text-sm font-medium text-purple-800">📈 Taux d'anonymisation</h3>
+                <p class="text-2xl font-bold text-purple-900">{{ taux_anonymisation|floatformat:1 }}%</p>
+            </div>
+            <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <h3 class="text-sm font-medium text-orange-800">🛡️ Score sécurité</h3>
+                <p class="text-2xl font-bold text-orange-900">{{ score_securite|floatformat:0 }}/100</p>
+            </div>
+        </div>
+
+        <!-- Aperçu des données -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div class="bg-red-50 px-4 py-3 border-b border-red-200">
+                    <h3 class="text-lg font-semibold text-red-800 flex items-center">
+                        🔓 Données Originales
+                        <span class="ml-2 text-xs bg-red-200 text-red-700 px-2 py-1 rounded">SENSIBLES</span>
+                    </h3>
+                </div>
+                <div class="overflow-auto max-h-80">
+                    <table class="min-w-full divide-y divide-gray-200 text-xs">
+                        <thead class="bg-gray-50 sticky top-0">
                             <tr>
                                 {% for header in headers %}
-                                <th class="px-4 py-2 text-left font-medium text-gray-700">{{ header }}</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-700 border-r border-gray-200">{{ header }}</th>
                                 {% endfor %}
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
                             {% for row in original|slice:":5" %}
-                            <tr>
+                            <tr class="hover:bg-gray-50">
                                 {% for cell in row %}
-                                <td class="px-4 py-2 text-gray-600">{{ cell }}</td>
+                                <td class="px-3 py-2 text-gray-600 border-r border-gray-200 max-w-32 truncate">{{ cell|truncatechars:20 }}</td>
                                 {% endfor %}
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
+                <div class="px-4 py-2 bg-gray-50 text-xs text-gray-600 border-t">
+                    Aperçu des 5 premières lignes
+                </div>
             </div>
-            <div>
-                <h3 class="text-lg font-semibold text-medic-blue mb-2 text-center">Données Anonymisées</h3>
-                <div class="overflow-auto border rounded max-h-96">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead class="bg-gray-100">
+
+            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div class="bg-green-50 px-4 py-3 border-b border-green-200">
+                    <h3 class="text-lg font-semibold text-green-800 flex items-center">
+                        🔒 Données Anonymisées
+                        <span class="ml-2 text-xs bg-green-200 text-green-700 px-2 py-1 rounded">PROTÉGÉES</span>
+                    </h3>
+                </div>
+                <div class="overflow-auto max-h-80">
+                    <table class="min-w-full divide-y divide-gray-200 text-xs">
+                        <thead class="bg-gray-50 sticky top-0">
                             <tr>
                                 {% for header in headers %}
-                                <th class="px-4 py-2 text-left font-medium text-gray-700">{{ header }}</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-700 border-r border-gray-200">{{ header }}</th>
                                 {% endfor %}
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
                             {% for row in anonymized|slice:":5" %}
-                            <tr>
+                            <tr class="hover:bg-gray-50">
                                 {% for cell in row %}
-                                <td class="px-4 py-2 text-gray-600">{{ cell }}</td>
+                                <td class="px-3 py-2 text-gray-600 border-r border-gray-200 max-w-32 truncate">{{ cell|truncatechars:20 }}</td>
                                 {% endfor %}
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
+                <div class="px-4 py-2 bg-gray-50 text-xs text-gray-600 border-t">
+                    Aperçu des 5 premières lignes
+                </div>
             </div>
         </div>
 
-        <div class="mt-4 text-center">
-            <p class="text-sm text-gray-600">Statistiques : {{ lignes_traitees }} lignes traitées, {{
-                colonnes_anonymisees }} colonnes anonymisées, Taux d'anonymisation : {{ taux_anonymisation|floatformat:2 }}%</p>
+        <!-- Actions -->
+        <div class="text-center">
+            <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p class="text-sm text-yellow-800">
+                    ⚠️ <strong>Attention :</strong> Une fois l'anonymisation lancée, le processus ne peut pas être annulé.
+                    Vérifiez bien l'aperçu ci-dessus.
+                </p>
+            </div>
 
-            <!-- Formulaire pour lancer l'anonymisation -->
-            <form id="anonymize-form" method="post" class="mt-4">
+            <form id="anonymize-form" method="post">
                 {% csrf_token %}
                 <input type="hidden" name="from_anonymize" value="1">
                 <input type="hidden" name="fichier_id" value="{{ fichier_id }}">
 
-                <button type="submit" class="bg-medic-blue text-white p-2 rounded hover:bg-medic-blue-dark">
-                    Lancer l'Anonymisation
+                <button type="submit" 
+                    class="bg-gradient-to-r from-medic-blue to-blue-600 text-white px-8 py-4 rounded-lg hover:from-medic-blue-dark hover:to-blue-700 transition-all duration-200 font-medium shadow-lg transform hover:scale-105">
+                    🚀 Lancer l'Anonymisation
                 </button>
             </form>
         </div>
         {% else %}
-        <div class="text-center">
-            <p class="text-gray-600">Aucune donnée à afficher. Veuillez revenir à l'étape précédente.</p>
+        <div class="text-center py-12">
+            <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <h3 class="text-lg font-medium text-gray-800 mb-2">Données non disponibles</h3>
+            <p class="text-gray-600 mb-4">Veuillez retourner à l'étape précédente pour configurer l'anonymisation.</p>
             <button type="button" onclick="window.location.href='?step=2&fichier_id={{ fichier_id }}'"
-                class="mt-4 bg-medic-blue text-white p-2 rounded hover:bg-medic-blue-dark">
-                Retour à l'étape 2
+                class="bg-medic-blue text-white px-6 py-3 rounded-lg hover:bg-medic-blue-dark transition-colors">
+                ← Retour à la configuration
             </button>
         </div>
         {% endif %}
     </div>
     {% endif %}
 
-    <!-- Étape 4 : Score & Export -->
+    <!-- Étape 4 : Score & Export amélioré -->
     {% if step == 4 %}
     <div class="mb-8">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold text-medic-blue">Étape 4 : Score & Export</h2>
-            <button type="button" onclick="window.location.href='?step=3&fichier_id={{ fichier_id }}'" class="text-medic-blue hover:underline">Retour</button>
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-semibold text-medic-blue">Étape 4 : Résultats & Export</h2>
+            <button type="button" onclick="window.location.href='?step=3&fichier_id={{ fichier_id }}'" 
+                class="text-medic-blue hover:underline flex items-center">
+                ← Retour
+            </button>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Métriques -->
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <h3 class="text-lg font-semibold mb-4">Métriques d'Anonymisation</h3>
-                <div class="space-y-2">
-                    <div class="flex justify-between">
-                        <span>Lignes traitées:</span>
-                        <span class="font-medium">{{ lignes_traitees }}</span>
+
+        <!-- Tableau de bord des résultats -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border border-blue-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-blue-800">Lignes traitées</p>
+                        <p class="text-3xl font-bold text-blue-900">{{ lignes_traitees }}</p>
                     </div>
-                    <div class="flex justify-between">
-                        <span>Colonnes anonymisées:</span>
-                        <span class="font-medium">{{ colonnes_anonymisees }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Taux d'anonymisation:</span>
-                        <span class="font-medium">{{ taux_anonymisation|floatformat:2 }}%</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span>Score de sécurité:</span>
-                        <span class="font-medium">{{ score_securite|floatformat:0 }}/100</span>
+                    <div class="p-3 bg-blue-200 rounded-full">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.445-5.103-3.479"></path>
+                        </svg>
                     </div>
                 </div>
             </div>
 
-            <!-- Conformité -->
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <h3 class="text-lg font-semibold mb-4">Rapport de Conformité</h3>
-                <div class="space-y-2">
-                    <div class="flex justify-between">
-                        <span>Analyse des risques:</span>
-                        <span class="font-medium">{{ analyse_risques }}</span>
+            <div class="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl border border-green-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-green-800">Colonnes protégées</p>
+                        <p class="text-3xl font-bold text-green-900">{{ colonnes_anonymisees }}</p>
                     </div>
-                    <div class="flex justify-between">
-                        <span>Conformité RGPD/CDP:</span>
-                        <span class="font-medium text-green-600">{{ conformite }}</span>
+                    <div class="p-3 bg-green-200 rounded-full">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
                     </div>
-                    <div class="mt-4">
-                        <p class="text-sm text-gray-600">
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl border border-purple-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-purple-800">Taux anonymisation</p>
+                        <p class="text-3xl font-bold text-purple-900">{{ taux_anonymisation|floatformat:1 }}%</p>
+                    </div>
+                    <div class="p-3 bg-purple-200 rounded-full">
+                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl border border-orange-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-orange-800">Score sécurité</p>
+                        <p class="text-3xl font-bold text-orange-900">{{ score_securite|floatformat:0 }}/100</p>
+                    </div>
+                    <div class="p-3 bg-orange-200 rounded-full">
+                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.5-1.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Rapport de conformité -->
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Rapport de Conformité
+                </h3>
+                
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                        <span class="text-sm font-medium text-green-800">RGPD (Union Européenne)</span>
+                        <span class="text-xs bg-green-200 text-green-700 px-2 py-1 rounded font-medium">✓ CONFORME</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                        <span class="text-sm font-medium text-blue-800">CDP (Code des Données Personnelles - Sénégal)</span>
+                        <span class="text-xs bg-blue-200 text-blue-700 px-2 py-1 rounded font-medium">✓ CONFORME</span>
+                    </div>
+                    
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <p class="text-sm text-gray-700">
+                            <strong>Analyse des risques:</strong> {{ analyse_risques }}
+                        </p>
+                    </div>
+                    
+                    <div class="p-3 bg-blue-50 rounded-lg">
+                        <p class="text-sm text-blue-700">
                             <strong>Recommandations:</strong> {{ recommandations }}
                         </p>
                     </div>
                 </div>
             </div>
+
+            <!-- Options d'export -->
+            <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Export & Sauvegarde
+                </h3>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="from_export" value="1">
+                    <input type="hidden" name="fichier_id" value="{{ fichier_id }}">
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label for="format" class="block text-sm font-medium text-gray-700 mb-2">Format d'export :</label>
+                            <select name="format" id="format" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-medic-blue focus:border-transparent">
+                                <option value="csv">📄 CSV (Recommandé)</option>
+                                <option value="json">🔗 JSON</option>
+                                <option value="pdf">📋 PDF (Rapport)</option>
+                                <option value="excel">📊 Excel</option>
+                            </select>
+                        </div>
+                        
+                        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <label class="flex items-start space-x-3">
+                                <input type="checkbox" name="share_hub" value="1" class="mt-1 accent-medic-blue">
+                                <div>
+                                    <span class="text-sm font-medium text-yellow-800">Partager dans le Hub public</span>
+                                    <p class="text-xs text-yellow-700 mt-1">Le fichier anonymisé sera accessible aux autres utilisateurs pour la recherche</p>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <button type="submit" 
+                            class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3 px-4 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 font-medium shadow-lg">
+                            💾 Exporter & Sauvegarder
+                        </button>
+                        
+                        <!-- Lien de téléchargement direct -->
+                        <a href="{% url 'telecharger_fichier' fichier_id %}" 
+                            class="block w-full text-center bg-medic-blue text-white py-3 px-4 rounded-lg hover:bg-medic-blue-dark transition-colors font-medium">
+                            📥 Télécharger maintenant
+                        </a>
+                    </div>
+                </form>
+            </div>
         </div>
 
-        <!-- Export -->
-        <div class="mt-6 text-center">
-            <form method="post" class="inline-block">
-                {% csrf_token %}
-                <input type="hidden" name="from_export" value="1">
-                <input type="hidden" name="fichier_id" value="{{ fichier_id }}">
-                <div class="flex flex-col items-center space-y-4">
-                    <div class="flex items-center space-x-4">
-                        <label for="format" class="text-sm font-medium">Format d'export:</label>
-                        <select name="format" id="format" class="p-2 border rounded">
-                            <option value="csv">CSV</option>
-                            <option value="json">JSON</option>
-                            <option value="pdf">PDF</option>
-                            <option value="docx">DOCX</option>
-                        </select>
-                    </div>
-                    <label class="flex items-center space-x-2">
-                        <input type="checkbox" name="share_hub" value="1" class="accent-medic-blue">
-                        <span>Partager dans le Hub public</span>
-                    </label>
-                    <button type="submit"
-                        class="bg-medic-blue text-white px-6 py-2 rounded hover:bg-medic-blue-dark">
-                        Exporter & Sauvegarder
-                    </button>
-                </div>
-            </form>
+        <!-- Actions suivantes -->
+        <div class="mt-8 text-center">
+            <div class="inline-flex space-x-4">
+                <button type="button" onclick="window.location.href='?step=5&fichier_id={{ fichier_id }}'"
+                    class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors font-medium">
+                    📚 Voir l'historique
+                </button>
+                
+                <button type="button" onclick="window.location.href='?step=1'"
+                    class="bg-medic-blue text-white px-6 py-3 rounded-lg hover:bg-medic-blue-dark transition-colors font-medium">
+                    🔄 Nouveau fichier
+                </button>
+            </div>
         </div>
     </div>
     {% endif %}
 
-    <!-- Étape 5 : Historique -->
+    <!-- Étape 5 : Historique amélioré -->
     {% if step == 5 %}
     <div class="mb-8">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold text-medic-blue">Étape 5 : Historique</h2>
-            <button type="button" onclick="window.location.href='?step=4&fichier_id={{ fichier_id }}'" class="text-medic-blue hover:underline">Retour</button>
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-semibold text-medic-blue">Étape 5 : Historique des Traitements</h2>
+            <button type="button" onclick="window.location.href='?step=1'" 
+                class="text-medic-blue hover:underline flex items-center">
+                🏠 Nouveau traitement
+            </button>
         </div>
-        <div class="mb-4 flex space-x-4">
-            <input type="text" placeholder="Rechercher..." class="p-2 border rounded flex-1 max-w-xs"
-                name="search">
-            <select name="statut" class="p-2 border rounded">
-                <option value="">Tous les statuts</option>
-                <option value="Anonymisé">Anonymisé</option>
-                <option value="Importé">Importé</option>
+
+        <!-- Filtres -->
+        <div class="mb-6 flex flex-wrap gap-4">
+            <input type="text" placeholder="🔍 Rechercher un fichier..." 
+                class="flex-1 min-w-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-medic-blue focus:border-transparent"
+                name="search" id="search-input">
+            <select name="statut" id="status-filter" 
+                class="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-medic-blue focus:border-transparent">
+                <option value="">📋 Tous les statuts</option>
+                <option value="Anonymisé">✅ Anonymisé</option>
+                <option value="En cours">⏳ En cours</option>
+                <option value="Importé">📤 Importé</option>
             </select>
         </div>
-        <div class="overflow-auto border rounded">
-            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                <thead class="bg-gray-100">
-                    <tr>
-                        <th class="px-4 py-2 text-left font-medium text-gray-700">Nom Fichier</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-700">Date Anonymisation</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-700">Score</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-700">Méthode</th>
-                        <th class="px-4 py-2 text-left font-medium text-gray-700">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    {% for fichier in fichiers %}
-                    {% if fichier.statut == 'Anonymisé' %}
-                    <tr>
-                        <td class="px-4 py-2">{{ fichier.nom_fichier }}</td>
-                        <td class="px-4 py-2">{{ fichier.date_import|date:"d/m/Y H:i" }}</td>
-                        <td class="px-4 py-2">{{ score_securite|floatformat:0 }}/100</td>
-                        <td class="px-4 py-2">Anonymisé</td>
-                        <td class="px-4 py-2">
-                            <a href="{% url 'download_anonymized' fichier.id %}"
-                                class="text-blue-500 hover:underline">Télécharger</a>
-                            <a href="{% url 'anonymize_result' fichier.id %}" class="ml-2 text-blue-500 hover:underline">Explorer</a>
-                        </td>
-                    </tr>
-                    {% endif %}
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" class="px-4 py-2 text-center text-gray-500">Aucun fichier anonymisé trouvé</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+        <!-- Tableau d'historique -->
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fichier</th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Méthodes</th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                            <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for fichier in fichiers %}
+                        {% if fichier.statut == 'Anonymisé' %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <svg class="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-900">{{ fichier.nom_fichier }}</div>
+                                        <div class="text-xs text-gray-500">{{ fichier.nom_fichier|length }} caractères</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ fichier.date_import|date:"d/m/Y H:i" }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="text-sm font-medium text-gray-900">{{ score_securite|floatformat:0 }}/100</div>
+                                    <div class="ml-2 w-16 bg-gray-200 rounded-full h-2">
+                                        <div class="bg-green-500 h-2 rounded-full" style="width: {{ score_securite }}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    Anonymisé
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    ✅ Terminé
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                <a href="{% url 'telecharger_fichier' fichier.id %}" 
+                                    class="inline-flex items-center px-3 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-white bg-medic-blue hover:bg-medic-blue-dark transition-colors">
+                                    📥 Télécharger
+                                </a>
+                                <a href="{% url 'anonymize_result' fichier.id %}" 
+                                    class="inline-flex items-center px-3 py-1 border border-gray-300 text-xs leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                                    👁️ Explorer
+                                </a>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center">
+                                <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.445-5.103-3.479"></path>
+                                </svg>
+                                <h3 class="text-lg font-medium text-gray-800 mb-2">Aucun fichier anonymisé</h3>
+                                <p class="text-gray-600 mb-4">Commencez par anonymiser un fichier pour voir l'historique.</p>
+                                <button type="button" onclick="window.location.href='?step=1'"
+                                    class="bg-medic-blue text-white px-6 py-2 rounded-lg hover:bg-medic-blue-dark transition-colors">
+                                    🚀 Anonymiser un fichier
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
+
+        <!-- Statistiques de l'historique -->
+        {% if fichiers %}
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h3 class="text-sm font-medium text-blue-800">📊 Total fichiers traités</h3>
+                <p class="text-2xl font-bold text-blue-900">{{ fichiers|length }}</p>
+            </div>
+            <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h3 class="text-sm font-medium text-green-800">✅ Fichiers anonymisés</h3>
+                <p class="text-2xl font-bold text-green-900">
+                    {% for fichier in fichiers %}{% if fichier.statut == 'Anonymisé' %}{{ forloop.counter }}{% endif %}{% endfor %}
+                </p>
+            </div>
+            <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <h3 class="text-sm font-medium text-purple-800">📈 Score moyen</h3>
+                <p class="text-2xl font-bold text-purple-900">{{ score_securite|floatformat:0 }}/100</p>
+            </div>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 </div>
 
+<!-- Scripts JavaScript améliorés -->
 <script>
-    // Gestion de l'upload par drag & drop
+document.addEventListener('DOMContentLoaded', function() {
     const dropzoneForm = document.getElementById('upload-form');
     const fileInput = document.getElementById('file-input');
     const dropzoneText = document.getElementById('dropzone-text');
+    const uploadIcon = document.getElementById('upload-icon');
     const cancelUpload = document.getElementById('cancel-upload');
+    const submitBtn = document.getElementById('submit-btn');
 
-    if (dropzoneForm) {
-        dropzoneForm.addEventListener('click', (e) => {
-            if (e.target.type !== 'submit') {
+    if (dropzoneForm && fileInput) {
+        // Variable pour tracker si un fichier est sélectionné
+        let fileSelected = false;
+
+        // Prévenir les comportements par défaut
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzoneForm.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Gestion visuelle du drag & drop
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzoneForm.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzoneForm.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropzoneForm.classList.add('border-blue-400', 'bg-blue-50');
+            if (dropzoneText) {
+                dropzoneText.innerHTML = '<span class="text-blue-600 font-medium">📤 Relâchez pour importer</span>';
+            }
+        }
+
+        function unhighlight(e) {
+            dropzoneForm.classList.remove('border-blue-400', 'bg-blue-50');
+            if (dropzoneText && !fileSelected) {
+                dropzoneText.innerHTML = 'Glissez-déposez votre fichier ici<br><span class="text-sm text-gray-500">ou cliquez pour sélectionner</span>';
+            }
+        }
+
+        // Click sur la zone (éviter les boutons)
+        dropzoneForm.addEventListener('click', function(e) {
+            // Ne déclencher que si on ne clique pas sur un bouton
+            if (e.target.type !== 'submit' && e.target.type !== 'button' && 
+                !e.target.closest('button') && !e.target.closest('input[type="file"]')) {
+                e.preventDefault();
                 fileInput.click();
             }
         });
 
-        dropzoneForm.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropzoneForm.classList.add('bg-gray-100');
-        });
+        // Gestion du drop
+        dropzoneForm.addEventListener('drop', handleDrop, false);
 
-        dropzoneForm.addEventListener('dragleave', () => {
-            dropzoneForm.classList.remove('bg-gray-100');
-        });
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                const file = files[0];
+                
+                // Validation du type de fichier
+                const allowedTypes = ['text/csv', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+                const allowedExtensions = ['.csv', '.pdf', '.docx'];
+                const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+                
+                if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+                    showError('⚠️ Format non supporté. Utilisez CSV, PDF ou DOCX.');
+                    return;
+                }
+                
+                // Validation de la taille (max 50MB)
+                if (file.size > 50 * 1024 * 1024) {
+                    showError('⚠️ Fichier trop volumineux. Taille maximale : 50MB.');
+                    return;
+                }
+                
+                // Assigner le fichier
+                fileInput.files = files;
+                fileSelected = true;
+                updateDropzoneDisplay(file);
+                
+                // Auto-submit après validation
+                setTimeout(() => {
+                    if (validateAndSubmit()) {
+                        showLoading();
+                        dropzoneForm.submit();
+                    }
+                }, 500);
+            }
+        }
 
-        dropzoneForm.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropzoneForm.classList.remove('bg-gray-100');
-            fileInput.files = e.dataTransfer.files;
-            if (fileInput.files.length > 0) {
-                dropzoneForm.submit();
+        // Gestion du changement via input
+        fileInput.addEventListener('change', function(e) {
+            if (this.files.length > 0) {
+                const file = this.files[0];
+                fileSelected = true;
+                updateDropzoneDisplay(file);
+                
+                // Auto-submit après validation
+                setTimeout(() => {
+                    if (validateAndSubmit()) {
+                        showLoading();
+                        dropzoneForm.submit();
+                    }
+                }, 500);
+            } else {
+                fileSelected = false;
+                resetDropzoneDisplay();
             }
         });
 
-        fileInput.addEventListener('change', () => {
-            if (fileInput.files.length > 0) {
-                dropzoneForm.submit();
+        // Validation et soumission du formulaire
+        dropzoneForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!validateAndSubmit()) {
+                return false;
             }
+            
+            showLoading();
+            
+            // Soumission réelle du formulaire
+            this.submit();
         });
+
+        function validateAndSubmit() {
+            // Vérifier qu'un fichier est sélectionné
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showError('⚠️ Veuillez sélectionner un fichier.');
+                return false;
+            }
+
+            const file = fileInput.files[0];
+            
+            // Validation du type
+            const allowedExtensions = ['.csv', '.pdf', '.docx'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!allowedExtensions.includes(fileExtension)) {
+                showError('⚠️ Format non supporté. Utilisez CSV, PDF ou DOCX.');
+                return false;
+            }
+            
+            // Validation de la taille
+            if (file.size > 50 * 1024 * 1024) {
+                showError('⚠️ Fichier trop volumineux. Taille maximale : 50MB.');
+                return false;
+            }
+
+            return true;
+        }
+
+        function updateDropzoneDisplay(file) {
+            if (dropzoneText && uploadIcon) {
+                uploadIcon.innerHTML = `
+                    <svg class="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                `;
+                
+                const sizeInMB = (file.size / 1024 / 1024).toFixed(2);
+                dropzoneText.innerHTML = `
+                    <div class="text-green-600 font-medium">
+                        ✅ ${file.name}
+                        <div class="text-sm text-green-500 mt-1">${sizeInMB} MB • ${file.type || 'Type détecté automatiquement'}</div>
+                    </div>
+                `;
+                
+                // Mettre à jour le texte du bouton
+                if (submitBtn) {
+                    submitBtn.innerHTML = '🚀 Importer ' + file.name;
+                }
+            }
+        }
+
+        function resetDropzoneDisplay() {
+            if (dropzoneText && uploadIcon) {
+                uploadIcon.innerHTML = `
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                `;
+                
+                dropzoneText.innerHTML = 'Glissez-déposez votre fichier ici<br><span class="text-sm text-gray-500">ou cliquez pour sélectionner</span>';
+                
+                if (submitBtn) {
+                    submitBtn.innerHTML = '📤 Importer le fichier';
+                }
+            }
+        }
+
+        function showLoading() {
+            if (dropzoneText && submitBtn) {
+                dropzoneText.innerHTML = `
+                    <div class="flex items-center justify-center">
+                        <svg class="animate-spin h-6 w-6 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="text-blue-600 font-medium">Importation en cours...</span>
+                    </div>
+                `;
+                
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `
+                    <svg class="animate-spin h-4 w-4 mr-2 inline" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Importation...
+                `;
+            }
+        }
+
+        function showError(message) {
+            if (dropzoneText) {
+                dropzoneText.innerHTML = `<span class="text-red-600 font-medium">${message}</span>`;
+                
+                setTimeout(() => {
+                    if (!fileSelected) {
+                        resetDropzoneDisplay();
+                    }
+                }, 3000);
+            }
+            
+            // Afficher une alerte toast
+            showToast(message, 'error');
+        }
     }
 
-    // Gestion du bouton "Passer à l'étape suivante" pour l'étape 1
+    // Bouton suivant
     document.querySelectorAll('#next-step').forEach(button => {
-        button.addEventListener('click', () => {
-            const fichierId = button.getAttribute('data-fichier-id');
-            window.location.href = `?step=2&fichier_id=${fichierId}`;
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const fichierId = this.getAttribute('data-fichier-id');
+            if (fichierId) {
+                window.location.href = `?step=2&fichier_id=${fichierId}`;
+            }
         });
     });
 
-    // Gestion du bouton Cancel Upload
+    // Bouton annuler
     if (cancelUpload) {
-        cancelUpload.addEventListener('click', () => {
-            fileInput.value = '';
-            dropzoneText.textContent = 'Glissez-déposez votre fichier ici ou cliquez pour sélectionner.';
-            const uploadedFileDiv = document.querySelector('#upload-form div.flex');
-            if (uploadedFileDiv) {
-                uploadedFileDiv.remove();
+        cancelUpload.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (fileInput) {
+                fileInput.value = '';
+                fileSelected = false;
+                resetDropzoneDisplay();
             }
-            // Rediriger vers l'étape 1 sans fichier
-            window.location.href = '?step=1';
+            
+            // Optionnel : rediriger
+            // window.location.href = '?step=1';
         });
     }
 
-    // Validation du formulaire de configuration (étape 2)
-    const configForm = document.getElementById('config-form');
-    if (configForm) {
-        configForm.addEventListener('submit', (e) => {
-            const checkedFields = configForm.querySelectorAll('input[name="ipi_fields"]:checked');
-            if (checkedFields.length === 0) {
-                e.preventDefault();
-                alert('Veuillez sélectionner au moins un champ IPI à anonymiser.');
-                return false;
-            }
-            
-            // Vérifier qu'une méthode est sélectionnée pour chaque champ coché
-            let hasMethod = true;
-            checkedFields.forEach(field => {
-                const methodSelect = configForm.querySelector(`select[name="method_${field.value}"]`);
-                if (!methodSelect || methodSelect.value === 'none') {
-                    hasMethod = false;
+    // Fonction toast pour les erreurs
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-md transition-all duration-300 transform translate-x-full`;
+        
+        const bgColor = type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500';
+        toast.className += ` ${bgColor} text-white`;
+        
+        toast.innerHTML = `
+            <div class="flex items-center justify-between">
+                <span>${message}</span>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">×</button>
+            </div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Animation d'entrée
+        setTimeout(() => {
+            toast.classList.remove('translate-x-full');
+        }, 100);
+        
+        // Auto-remove
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
                 }
-            });
-            
-            if (!hasMethod) {
-                e.preventDefault();
-                alert('Veuillez sélectionner une méthode d\'anonymisation pour chaque champ coché.');
-                return false;
-            }
-        });
+            }, 300);
+        }, 5000);
     }
+
+    // Variables globales pour les autres fonctions
+    window.fileSelected = fileSelected;
+    window.showToast = showToast;
+});
 </script>
 {% endblock %}

@@ -13,8 +13,13 @@ class Utilisateur(AbstractUser):
 
 class Fichier(models.Model):
     nom_fichier = models.CharField(max_length=255)
-    fichier = models.FileField(upload_to='fichiers/')  # Fichier original
-    fichier_anonymise = models.FileField(upload_to='fichiers_anonymises/', blank=True, null=True)  # NOUVEAU
+    fichier = models.FileField(upload_to='fichiers/') 
+    fichier_anonymise = models.FileField(
+        upload_to='fichiers_anonymises/',
+        null=True,
+        blank=True,
+        help_text="Fichier après anonymisation"
+    )
     date_import = models.DateTimeField(auto_now_add=True)
     statut = models.CharField(max_length=20, choices=[
         ('Importé', 'Importé'),
@@ -104,3 +109,4 @@ class RapportConformité(models.Model):
 
     def __str__(self):
         return f"Rapport {self.historique.id}"
+    

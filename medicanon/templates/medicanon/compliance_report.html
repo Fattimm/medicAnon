@@ -10,6 +10,7 @@
                     <th class="px-4 py-2 text-left font-medium text-gray-700">Fichier</th>
                     <th class="px-4 py-2 text-left font-medium text-gray-700">Analyse des Risques</th>
                     <th class="px-4 py-2 text-left font-medium text-gray-700">Recommandations</th>
+                    <th class="px-4 py-2 text-left font-medium text-gray-700">Conformité</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
@@ -18,6 +19,7 @@
                     <td class="px-4 py-2">{{ rapport.historique.fichier.nom_fichier }}</td>
                     <td class="px-4 py-2">{{ rapport.analyse_risques }}</td>
                     <td class="px-4 py-2">{{ rapport.recommandations }}</td>
+                    <td class="px-4 py-2">{{ rapport.conformite }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

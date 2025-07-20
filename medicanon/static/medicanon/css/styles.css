@@ -1,3 +1,592 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Styles personnalisés pour MedicAnon */
+/* Variables CSS personnalisées */
+:root {
+  --shadow-soft: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-header: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --gradient-medical: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  --gradient-success: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  --gradient-soft: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+/* Animations personnalisées */
+@layer base {
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: calc(200px + 100%) 0; }
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply antialiased;
+  }
+}
+
+/* Composants personnalisés */
+@layer components {
+  /* Classes pour les liens de navigation */
+  .nav-link {
+    @apply flex items-center px-3 py-2 rounded-lg text-sm font-medium text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200;
+  }
+  
+  .nav-link-active {
+    @apply bg-white/20 text-white shadow-lg;
+  }
+  
+  .nav-link-mobile {
+    @apply block px-3 py-2 text-sm font-medium text-white/90 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200;
+  }
+  
+  /* Classes pour les boutons */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply bg-medic-500 text-white hover:bg-medic-600 focus:ring-medic-500 shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-neutral-200 text-neutral-700 hover:bg-neutral-300 focus:ring-neutral-500;
+  }
+
+  .btn-success {
+    @apply bg-success-500 text-white hover:bg-success-600 focus:ring-success-500 shadow-sm;
+  }
+
+  .btn-warning {
+    @apply bg-warning-500 text-white hover:bg-warning-600 focus:ring-warning-500 shadow-sm;
+  }
+
+  .btn-danger {
+    @apply bg-danger-500 text-white hover:bg-danger-600 focus:ring-danger-500 shadow-sm;
+  }
+
+  .btn-outline {
+    @apply border border-neutral-300 text-neutral-700 hover:bg-neutral-50 focus:ring-neutral-500;
+  }
+
+  .btn-outline-primary {
+    @apply border border-medic-500 text-medic-500 hover:bg-medic-50 focus:ring-medic-500;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  /* Classes pour les cartes */
+  .card {
+    @apply bg-white rounded-xl shadow-card border border-neutral-200/50 p-6 transition-all duration-300 hover:shadow-soft;
+  }
+
+  .card-header {
+    @apply border-b border-neutral-200/50 pb-4 mb-4;
+  }
+
+  .card-title {
+    @apply text-lg font-semibold text-neutral-900;
+  }
+
+  .card-subtitle {
+    @apply text-sm text-neutral-600 mt-1;
+  }
+
+  /* Classes pour les formulaires */
+  .form-group {
+    @apply mb-4;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-neutral-700 mb-2;
+  }
+
+  .form-input {
+    @apply block w-full px-3 py-2 border border-neutral-300 rounded-lg shadow-sm placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-medic-500 focus:border-medic-500 transition-colors duration-200;
+  }
+
+  .form-select {
+    @apply block w-full px-3 py-2 border border-neutral-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-medic-500 focus:border-medic-500 transition-colors duration-200;
+  }
+
+  .form-textarea {
+    @apply block w-full px-3 py-2 border border-neutral-300 rounded-lg shadow-sm placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-medic-500 focus:border-medic-500 transition-colors duration-200 resize-vertical;
+  }
+
+  .form-checkbox {
+    @apply h-4 w-4 text-medic-600 focus:ring-medic-500 border-neutral-300 rounded;
+  }
+
+  .form-radio {
+    @apply h-4 w-4 text-medic-600 focus:ring-medic-500 border-neutral-300;
+  }
+
+  .form-error {
+    @apply text-sm text-danger-600 mt-1;
+  }
+
+  .form-help {
+    @apply text-sm text-neutral-500 mt-1;
+  }
+
+  /* Classes pour les messages */
+  .message-alert {
+    @apply flex items-center justify-between p-4 rounded-lg shadow-lg backdrop-blur-sm max-w-md;
+  }
+  
+  .message-success {
+    @apply bg-success-50 text-success-800 border border-success-200;
+  }
+  
+  .message-error {
+    @apply bg-danger-50 text-danger-800 border border-danger-200;
+  }
+  
+  .message-warning {
+    @apply bg-warning-50 text-warning-800 border border-warning-200;
+  }
+  
+  .message-info {
+    @apply bg-medic-50 text-medic-800 border border-medic-200;
+  }
+
+  /* Classes pour les alertes */
+  .alert {
+    @apply p-4 rounded-lg border;
+  }
+
+  .alert-success {
+    @apply bg-success-50 border-success-200 text-success-800;
+  }
+
+  .alert-warning {
+    @apply bg-warning-50 border-warning-200 text-warning-800;
+  }
+
+  .alert-danger {
+    @apply bg-danger-50 border-danger-200 text-danger-800;
+  }
+
+  .alert-info {
+    @apply bg-medic-50 border-medic-200 text-medic-800;
+  }
+
+  /* Classes pour les badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply bg-medic-100 text-medic-800;
+  }
+
+  .badge-secondary {
+    @apply bg-neutral-100 text-neutral-800;
+  }
+
+  .badge-success {
+    @apply bg-success-100 text-success-800;
+  }
+
+  .badge-warning {
+    @apply bg-warning-100 text-warning-800;
+  }
+
+  .badge-danger {
+    @apply bg-danger-100 text-danger-800;
+  }
+
+  .badge-sensitive {
+    @apply bg-sensitive-100 text-sensitive-800;
+  }
+
+  /* Classes pour les tables */
+  .table {
+    @apply min-w-full divide-y divide-neutral-200;
+  }
+
+  .table-header {
+    @apply bg-neutral-50;
+  }
+
+  .table-header-cell {
+    @apply px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider;
+  }
+
+  .table-body {
+    @apply bg-white divide-y divide-neutral-200;
+  }
+
+  .table-row {
+    @apply hover:bg-neutral-50 transition-colors duration-150;
+  }
+
+  .table-cell {
+    @apply px-6 py-4 whitespace-nowrap text-sm text-neutral-900;
+  }
+
+  .table-cell-secondary {
+    @apply px-6 py-4 whitespace-nowrap text-sm text-neutral-500;
+  }
+
+  /* Classes pour les étapes */
+  .step-container {
+    @apply flex items-center justify-between mb-8;
+  }
+
+  .step-item {
+    @apply flex items-center flex-1;
+  }
+
+  .step-circle {
+    @apply w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200;
+  }
+
+  .step-circle-inactive {
+    @apply bg-neutral-200 text-neutral-500;
+  }
+
+  .step-circle-active {
+    @apply bg-medic-500 text-white;
+  }
+
+  .step-circle-completed {
+    @apply bg-success-500 text-white;
+  }
+
+  .step-label {
+    @apply text-sm font-medium mt-2 text-center;
+  }
+
+  .step-label-inactive {
+    @apply text-neutral-500;
+  }
+
+  .step-label-active {
+    @apply text-medic-600;
+  }
+
+  .step-label-completed {
+    @apply text-success-600;
+  }
+
+  .step-connector {
+    @apply flex-1 h-0.5 mx-4;
+  }
+
+  .step-connector-inactive {
+    @apply bg-neutral-200;
+  }
+
+  .step-connector-active {
+    @apply bg-medic-500;
+  }
+
+  .step-connector-completed {
+    @apply bg-success-500;
+  }
+
+  /* Classes pour les zones de drag & drop */
+  .dropzone {
+    @apply border-2 border-dashed border-neutral-300 rounded-lg p-8 text-center transition-all duration-200 hover:border-medic-400 hover:bg-medic-50/50;
+  }
+
+  .dropzone-active {
+    @apply border-medic-500 bg-medic-50;
+  }
+
+  .dropzone-error {
+    @apply border-danger-500 bg-danger-50;
+  }
+
+  /* Classes pour les métriques */
+  .metric-card {
+    @apply bg-white rounded-xl shadow-card p-6 border border-neutral-200/50;
+  }
+
+  .metric-title {
+    @apply text-sm font-medium text-neutral-600 mb-2;
+  }
+
+  .metric-value {
+    @apply text-2xl font-bold text-neutral-900;
+  }
+
+  .metric-change {
+    @apply text-sm font-medium;
+  }
+
+  .metric-change-positive {
+    @apply text-success-600;
+  }
+
+  .metric-change-negative {
+    @apply text-danger-600;
+  }
+
+  .metric-change-neutral {
+    @apply text-neutral-500;
+  }
+
+  /* Classes pour les loaders */
+  .spinner {
+    @apply animate-spin rounded-full h-8 w-8 border-b-2 border-medic-500;
+  }
+
+  .spinner-sm {
+    @apply h-4 w-4;
+  }
+
+  .spinner-lg {
+    @apply h-12 w-12;
+  }
+
+  .skeleton {
+    @apply bg-neutral-200 rounded animate-pulse;
+  }
+
+  .skeleton-line {
+    @apply h-4 bg-neutral-200 rounded animate-pulse;
+  }
+
+  /* Classes pour les progress bars */
+  .progress-bar {
+    @apply w-full bg-neutral-200 rounded-full h-2;
+  }
+
+  .progress-fill {
+    @apply bg-medic-500 h-2 rounded-full transition-all duration-300;
+  }
+
+  .progress-fill-success {
+    @apply bg-success-500;
+  }
+
+  .progress-fill-warning {
+    @apply bg-warning-500;
+  }
+
+  .progress-fill-danger {
+    @apply bg-danger-500;
+  }
+
+  /* Classes pour les tabs */
+  .tab-list {
+    @apply flex space-x-1 border-b border-neutral-200 mb-6;
+  }
+
+  .tab-button {
+    @apply px-4 py-2 text-sm font-medium text-neutral-500 hover:text-neutral-700 border-b-2 border-transparent hover:border-neutral-300 transition-all duration-200;
+  }
+
+  .tab-button-active {
+    @apply text-medic-600 border-medic-500;
+  }
+
+  .tab-content {
+    @apply min-h-0 flex-1;
+  }
+
+  /* Classes pour les modals */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4;
+  }
+
+  .modal-content {
+    @apply bg-white rounded-xl shadow-xl max-w-md w-full p-6;
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between mb-4;
+  }
+
+  .modal-title {
+    @apply text-lg font-semibold text-neutral-900;
+  }
+
+  .modal-close {
+    @apply text-neutral-400 hover:text-neutral-600 transition-colors;
+  }
+
+  .modal-body {
+    @apply mb-6;
+  }
+
+  .modal-footer {
+    @apply flex items-center justify-end space-x-3;
+  }
+}
+
+/* Utilitaires personnalisés */
+@layer utilities {
+  /* Animations personnalisées */
+  .fade-in {
+    animation: fadeIn 0.6s ease-out;
+  }
+
+  .slide-in {
+    animation: slideIn 0.4s ease-out;
+  }
+
+  .pulse-soft {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, #f0f0f0 0%, #e0e0e0 50%, #f0f0f0 100%);
+    background-size: 200px 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Shadows personnalisées */
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-header {
+    box-shadow: var(--shadow-header);
+  }
+
+  /* Backgrounds avec gradients */
+  .bg-gradient-medical {
+    background: var(--gradient-medical);
+  }
+
+  .bg-gradient-success {
+    background: var(--gradient-success);
+  }
+
+  .bg-gradient-soft {
+    background: var(--gradient-soft);
+  }
+
+  /* Utilitaires pour l'impression */
+  .print-only {
+    @apply hidden;
+  }
+
+  .no-print {
+    @apply block;
+  }
+
+  /* Utilitaires pour les tooltips */
+  .tooltip {
+    @apply absolute z-10 px-3 py-2 text-sm font-medium text-white bg-neutral-900 rounded-lg shadow-sm opacity-0 transition-opacity duration-300;
+  }
+
+  .tooltip-arrow {
+    @apply absolute w-2 h-2 bg-neutral-900 transform rotate-45;
+  }
+
+  /* Utilitaires pour les states */
+  .state-loading {
+    @apply opacity-50 pointer-events-none;
+  }
+
+  .state-disabled {
+    @apply opacity-60 cursor-not-allowed;
+  }
+
+  .state-selected {
+    @apply ring-2 ring-medic-500 ring-offset-2;
+  }
+
+  .state-error {
+    @apply ring-2 ring-danger-500 ring-offset-2;
+  }
+
+  /* Utilitaires pour les focus states */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-medic-500 focus:ring-offset-2;
+  }
+
+  .focus-ring-danger {
+    @apply focus:outline-none focus:ring-2 focus:ring-danger-500 focus:ring-offset-2;
+  }
+
+  .focus-ring-success {
+    @apply focus:outline-none focus:ring-2 focus:ring-success-500 focus:ring-offset-2;
+  }
+}
+
+/* Styles responsifs */
+@media (max-width: 640px) {
+  .card {
+    @apply p-4;
+  }
+  
+  .btn {
+    @apply px-3 py-1.5 text-xs;
+  }
+  
+  .metric-value {
+    @apply text-xl;
+  }
+  
+  .modal-content {
+    @apply p-4;
+  }
+}
+
+/* Styles pour l'impression */
+@media print {
+  .no-print {
+    @apply hidden !important;
+  }
+  
+  .print-only {
+    @apply block !important;
+  }
+  
+  .card {
+    @apply shadow-none border border-neutral-300;
+  }
+  
+  .btn {
+    @apply border border-neutral-300;
+  }
+}
+
+/* Styles pour les modes sombre (optionnel) */
+@media (prefers-color-scheme: dark) {
+  .dark-mode {
+    @apply bg-neutral-900 text-white;
+  }
+  
+  .dark-mode .card {
+    @apply bg-neutral-800 border-neutral-700;
+  }
+  
+  .dark-mode .form-input {
+    @apply bg-neutral-800 border-neutral-600 text-white;
+  }
+}

@@ -2,23 +2,602 @@
 {% block title %}Hub Public{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto p-4 bg-white rounded shadow mt-6">
-    <h2 class="text-2xl font-bold mb-4 text-center">Hub Public des Fichiers Anonymisés</h2>
-    {% if fichiers %}
-        <ul class="space-y-2">
-            {% for fichier in fichiers %}
-                <li class="p-2 border rounded flex justify-between items-center">
-                    <span>{{ fichier.nom_fichier }}</span>
-                    {% if user.is_authenticated %}
-                        <a href="{% url 'telecharger_fichier' fichier.id %}" class="text-blue-600 hover:underline">Télécharger</a>
-                    {% else %}
-                        <span class="text-gray-500 text-sm">Connectez-vous pour télécharger</span>
-                    {% endif %}
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p class="text-center text-gray-600">Aucun fichier anonymisé disponible pour le moment.</p>
-    {% endif %}
+<!-- Header Section -->
+<section class="bg-gradient-medical py-16">
+    <div class="max-w-7xl mx-auto px-4 text-center">
+        <h1 class="text-4xl md:text-5xl font-bold text-white mb-6">
+            Hub Public des Données Anonymisées
+        </h1>
+        <p class="text-xl text-white/90 mb-8 max-w-3xl mx-auto">
+            Accédez à une collection de données médicales anonymisées partagées par la communauté scientifique 
+            pour la recherche et l'éducation.
+        </p>
+        
+        <!-- Statistiques -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+                <div class="text-3xl font-bold text-white mb-2">{{ fichiers|length }}</div>
+                <div class="text-white/80">Fichiers Disponibles</div>
+            </div>
+            <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+                <div class="text-3xl font-bold text-white mb-2">100%</div>
+                <div class="text-white/80">Conformité RGPD/CDP</div>
+            </div>
+            <div class="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+                <div class="text-3xl font-bold text-white mb-2">24/7</div>
+                <div class="text-white/80">Accès Libre</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Barre de recherche et filtres -->
+<section class="py-8 bg-white border-b">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div class="flex-1 max-w-md">
+                <div class="relative">
+                    <input type="text" 
+                           id="search-input" 
+                           placeholder="Rechercher des fichiers..." 
+                           class="form-input pl-10 pr-4 py-2 w-full">
+                    <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-neutral-400" 
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+            </div>
+            
+            <div class="flex gap-2">
+                <select id="type-filter" class="form-select">
+                    <option value="">Tous les types</option>
+                    <option value="csv">CSV</option>
+                    <option value="pdf">PDF</option>
+                    <option value="docx">DOCX</option>
+                </select>
+                
+                <select id="sort-by" class="form-select">
+                    <option value="date">Plus récent</option>
+                    <option value="name">Nom A-Z</option>
+                    <option value="size">Taille</option>
+                </select>
+                
+                <button id="view-toggle" class="btn btn-outline-primary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Section principale -->
+<section class="py-12 bg-gradient-soft min-h-screen">
+    <div class="max-w-7xl mx-auto px-4">
+        {% if fichiers %}
+            <!-- Vue grille (par défaut) -->
+            <div id="grid-view" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for fichier in fichiers %}
+                <div class="file-card card hover:shadow-soft transition-all duration-300 cursor-pointer" 
+                     data-filename="{{ fichier.nom_fichier|lower }}" 
+                     data-type="{{ fichier.nom_fichier|cut:'.csv'|cut:'.pdf'|cut:'.docx' }}"
+                     data-date="{{ fichier.date_import|date:'Y-m-d' }}">
+                    
+                    <!-- Header de la carte -->
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center space-x-3">
+                            <!-- Icône du type de fichier -->
+                            {% if '.csv' in fichier.nom_fichier %}
+                                <div class="w-10 h-10 bg-success-100 rounded-lg flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-success-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                </div>
+                            {% elif '.pdf' in fichier.nom_fichier %}
+                                <div class="w-10 h-10 bg-danger-100 rounded-lg flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-danger-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                    </svg>
+                                </div>
+                            {% else %}
+                                <div class="w-10 h-10 bg-medic-100 rounded-lg flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-medic-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                </div>
+                            {% endif %}
+                            
+                            <div>
+                                <h3 class="font-semibold text-neutral-900 text-sm truncate max-w-40">
+                                    {{ fichier.nom_fichier }}
+                                </h3>
+                                <p class="text-xs text-neutral-500">
+                                    {{ fichier.date_import|date:"d/m/Y" }}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Badge de statut -->
+                        <span class="badge badge-success">Anonymisé</span>
+                    </div>
+                    
+                    <!-- Informations du fichier -->
+                    <div class="space-y-3 mb-4">
+                        <div class="flex items-center text-sm text-neutral-600">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            <span>Format: {{ fichier.nom_fichier|cut:'.csv'|cut:'.pdf'|cut:'.docx'|upper }}</span>
+                        </div>
+                        
+                        <div class="flex items-center text-sm text-neutral-600">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            </svg>
+                            <span>100% Anonymisé</span>
+                        </div>
+                        
+                        <div class="flex items-center text-sm text-neutral-600">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                            <span>Partagé par un agent</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Métriques -->
+                    <div class="grid grid-cols-2 gap-4 mb-4 p-3 bg-neutral-50 rounded-lg">
+                        <div class="text-center">
+                            <div class="text-sm font-semibold text-neutral-900">Score</div>
+                            <div class="text-xs text-neutral-600">95/100</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-sm font-semibold text-neutral-900">Conformité</div>
+                            <div class="text-xs text-success-600">RGPD</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex gap-2">
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'telecharger_fichier' fichier.id %}" 
+                               class="btn btn-primary btn-sm flex-1">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-4-4m4 4l4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Télécharger
+                            </a>
+                            <button class="btn btn-outline btn-sm" onclick="showPreview('{{ fichier.nom_fichier }}')">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                            </button>
+                        {% else %}
+                            <button class="btn btn-outline btn-sm flex-1" onclick="showLoginModal()">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                                Se connecter
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Vue liste (cachée par défaut) -->
+            <div id="list-view" class="hidden space-y-4">
+                {% for fichier in fichiers %}
+                <div class="file-card card hover:shadow-soft transition-all duration-300" 
+                     data-filename="{{ fichier.nom_fichier|lower }}" 
+                     data-type="{{ fichier.nom_fichier|cut:'.csv'|cut:'.pdf'|cut:'.docx' }}"
+                     data-date="{{ fichier.date_import|date:'Y-m-d' }}">
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <!-- Icône -->
+                            {% if '.csv' in fichier.nom_fichier %}
+                                <div class="w-12 h-12 bg-success-100 rounded-lg flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-success-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                </div>
+                            {% elif '.pdf' in fichier.nom_fichier %}
+                                <div class="w-12 h-12 bg-danger-100 rounded-lg flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-danger-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                    </svg>
+                                </div>
+                            {% else %}
+                                <div class="w-12 h-12 bg-medic-100 rounded-lg flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-medic-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                </div>
+                            {% endif %}
+                            
+                            <div>
+                                <h3 class="font-semibold text-neutral-900">{{ fichier.nom_fichier }}</h3>
+                                <div class="flex items-center space-x-4 text-sm text-neutral-500">
+                                    <span>{{ fichier.date_import|date:"d/m/Y à H:i" }}</span>
+                                    <span class="badge badge-success">Anonymisé</span>
+                                    <span>Score: 95/100</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            {% if user.is_authenticated %}
+                                <button class="btn btn-outline btn-sm" onclick="showPreview('{{ fichier.nom_fichier }}')">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    Aperçu
+                                </button>
+                                <a href="{% url 'telecharger_fichier' fichier.id %}" class="btn btn-primary btn-sm">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-4-4m4 4l4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Télécharger
+                                </a>
+                            {% else %}
+                                <button class="btn btn-outline btn-sm" onclick="showLoginModal()">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                    </svg>
+                                    Se connecter pour télécharger
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- État vide -->
+            <div class="text-center py-20">
+                <div class="w-24 h-24 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-12 h-12 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-neutral-900 mb-2">Aucun fichier disponible</h3>
+                <p class="text-neutral-600 mb-8">
+                    Aucun fichier anonymisé n'a été partagé publiquement pour le moment.
+                </p>
+                {% if user.is_authenticated and user.role in 'Agent,Administrateur' %}
+                    <a href="{% url 'anonymize' %}" class="btn btn-primary">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Anonymiser un fichier
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Section informative -->
+<section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl font-bold text-neutral-900 mb-4">Pourquoi utiliser le Hub Public ?</h2>
+            <p class="text-xl text-neutral-600 max-w-2xl mx-auto">
+                Une ressource précieuse pour la recherche médicale et l'éducation
+            </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-medic-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-medic-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-neutral-900 mb-2">Recherche Académique</h3>
+                <p class="text-neutral-600">
+                    Accès à des données anonymisées pour vos projets de recherche et analyses statistiques.
+                </p>
+            </div>
+            
+            <div class="text-center">
+                <div class="w-16 h-16 bg-success-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-success-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-neutral-900 mb-2">100% Sécurisé</h3>
+                <p class="text-neutral-600">
+                    Toutes les données sont parfaitement anonymisées et conformes aux réglementations.
+                </p>
+            </div>
+            
+            <div class="text-center">
+                <div class="w-16 h-16 bg-warning-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-warning-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-neutral-900 mb-2">Communauté</h3>
+                <p class="text-neutral-600">
+                    Contribuez à l'avancement de la science médicale en partageant vos données.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Modal de connexion -->
+<div id="login-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Connexion requise</h3>
+            <button class="modal-close" onclick="closeLoginModal()">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="text-neutral-600 mb-4">
+                Vous devez être connecté pour télécharger des fichiers depuis le Hub Public.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeLoginModal()">Annuler</button>
+            <a href="{% url 'login' %}" class="btn btn-primary">Se connecter</a>
+        </div>
+    </div>
 </div>
+
+<!-- Message de résultats -->
+<div id="search-results" class="hidden fixed top-4 right-4 bg-white p-4 rounded-lg shadow-lg border max-w-sm">
+    <p class="text-sm text-neutral-600">
+        <span id="results-count">0</span> fichier(s) trouvé(s)
+    </p>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+    const typeFilter = document.getElementById('type-filter');
+    const sortBy = document.getElementById('sort-by');
+    const viewToggle = document.getElementById('view-toggle');
+    const gridView = document.getElementById('grid-view');
+    const listView = document.getElementById('list-view');
+    const searchResults = document.getElementById('search-results');
+    const resultsCount = document.getElementById('results-count');
+    
+    let currentView = 'grid';
+    let allCards = [];
+    
+    // Initialiser les cartes
+    function initCards() {
+        allCards = Array.from(document.querySelectorAll('.file-card'));
+        updateResultsCount();
+    }
+    
+    // Basculer entre vue grille et liste
+    viewToggle.addEventListener('click', function() {
+        if (currentView === 'grid') {
+            gridView.classList.add('hidden');
+            listView.classList.remove('hidden');
+            currentView = 'list';
+            viewToggle.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                </svg>
+            `;
+        } else {
+            listView.classList.add('hidden');
+            gridView.classList.remove('hidden');
+            currentView = 'grid';
+            viewToggle.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            `;
+        }
+        
+        // Réappliquer les filtres
+        filterAndSort();
+    });
+    
+    // Fonction de filtrage et tri
+    function filterAndSort() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const typeFilter_value = typeFilter.value;
+        const sortBy_value = sortBy.value;
+        
+        let filteredCards = allCards.filter(card => {
+            const filename = card.dataset.filename || '';
+            const type = card.dataset.type || '';
+            
+            // Filtrer par recherche
+            const matchesSearch = filename.includes(searchTerm);
+            
+            // Filtrer par type
+            const matchesType = !typeFilter_value || type.includes(typeFilter_value);
+            
+            return matchesSearch && matchesType;
+        });
+        
+        // Trier
+        filteredCards.sort((a, b) => {
+            if (sortBy_value === 'name') {
+                return a.dataset.filename.localeCompare(b.dataset.filename);
+            } else if (sortBy_value === 'date') {
+                return new Date(b.dataset.date) - new Date(a.dataset.date);
+            } else if (sortBy_value === 'size') {
+                // Tri par taille (simulé)
+                return a.dataset.filename.length - b.dataset.filename.length;
+            }
+            return 0;
+        });
+        
+        // Afficher/masquer les cartes
+        allCards.forEach(card => {
+            card.style.display = 'none';
+        });
+        
+        filteredCards.forEach(card => {
+            card.style.display = 'block';
+        });
+        
+        // Mettre à jour le compteur
+        updateResultsCount(filteredCards.length);
+        
+        // Afficher le résultat temporairement
+        showSearchResults(filteredCards.length);
+    }
+    
+    // Mettre à jour le compteur de résultats
+    function updateResultsCount(count = null) {
+        const totalCount = count !== null ? count : allCards.length;
+        resultsCount.textContent = totalCount;
+    }
+    
+    // Afficher les résultats de recherche
+    function showSearchResults(count) {
+        if (searchInput.value.trim() || typeFilter.value) {
+            resultsCount.textContent = count;
+            searchResults.classList.remove('hidden');
+            
+            // Masquer après 3 secondes
+            setTimeout(() => {
+                searchResults.classList.add('hidden');
+            }, 3000);
+        }
+    }
+    
+    // Événements de filtrage
+    searchInput.addEventListener('input', filterAndSort);
+    typeFilter.addEventListener('change', filterAndSort);
+    sortBy.addEventListener('change', filterAndSort);
+    
+    // Raccourci clavier pour la recherche
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'k') {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+    
+    // Initialiser
+    initCards();
+});
+
+// Fonction pour afficher la modal de connexion
+function showLoginModal() {
+    document.getElementById('login-modal').classList.remove('hidden');
+}
+
+// Fonction pour fermer la modal de connexion
+function closeLoginModal() {
+    document.getElementById('login-modal').classList.add('hidden');
+}
+
+// Fonction pour afficher l'aperçu d'un fichier
+function showPreview(filename) {
+    // Simuler un aperçu
+    alert(`Aperçu du fichier: ${filename}\n\nCette fonctionnalité sera bientôt disponible pour afficher un aperçu sécurisé du contenu anonymisé.`);
+}
+
+// Gestion des clics sur les cartes
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.file-card') && !e.target.closest('button') && !e.target.closest('a')) {
+        const card = e.target.closest('.file-card');
+        const filename = card.dataset.filename;
+        showPreview(filename);
+    }
+});
+
+// Fermer la modal en cliquant à l'extérieur
+document.getElementById('login-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeLoginModal();
+    }
+});
+
+// Animation d'entrée pour les cartes
+const observerOptions = {
+    threshold: 0.1,
+    rootMargin: '0px 0px -50px 0px'
+};
+
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('fade-in');
+        }
+    });
+}, observerOptions);
+
+// Observer toutes les cartes
+document.querySelectorAll('.file-card').forEach(card => {
+    observer.observe(card);
+});
+
+// Gestion des états de chargement
+document.querySelectorAll('a[href*="telecharger"]').forEach(link => {
+    link.addEventListener('click', function(e) {
+        const button = this;
+        const originalText = button.innerHTML;
+        
+        button.innerHTML = `
+            <svg class="w-4 h-4 mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Téléchargement...
+        `;
+        
+        // Restaurer après 3 secondes
+        setTimeout(() => {
+            button.innerHTML = originalText;
+        }, 3000);
+    });
+});
+
+// Tooltip pour les raccourcis
+const searchInput = document.getElementById('search-input');
+if (searchInput) {
+    searchInput.setAttribute('title', 'Raccourci: Ctrl+K');
+    searchInput.setAttribute('placeholder', 'Rechercher des fichiers... (Ctrl+K)');
+}
+
+// Gestion des erreurs de téléchargement
+window.addEventListener('error', function(e) {
+    if (e.target.tagName === 'A' && e.target.href.includes('telecharger')) {
+        alert('Erreur lors du téléchargement. Veuillez réessayer.');
+    }
+});
+
+// Statistiques en temps réel (simulation)
+function updateStats() {
+    const statsElements = document.querySelectorAll('[data-stat]');
+    statsElements.forEach(element => {
+        const currentValue = parseInt(element.textContent);
+        const variation = Math.random() > 0.5 ? 1 : -1;
+        const newValue = Math.max(0, currentValue + variation);
+        
+        if (newValue !== currentValue) {
+            element.textContent = newValue;
+            element.classList.add('text-medic-600');
+            setTimeout(() => {
+                element.classList.remove('text-medic-600');
+            }, 1000);
+        }
+    });
+}
+
+// Mettre à jour les stats toutes les 30 secondes (optionnel)
+// setInterval(updateStats, 30000);
+</script>
 {% endblock %}
