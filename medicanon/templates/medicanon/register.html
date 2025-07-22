@@ -1,44 +1,580 @@
 {% extends 'medicanon/base.html' %}
-{% block title %}Inscription{% endblock %}
+{% block title %}{{ page_title }}{% endblock %}
 
 {% block content %}
-<div class="max-w-md mx-auto bg-white rounded-lg shadow p-6 mt-10">
-    <h1 class="text-2xl font-bold text-center mb-4">Inscription Visiteur</h1>
-    <p class="text-center text-sm mb-4 text-gray-600">Créez votre compte Visiteur pour télécharger des fichiers anonymisés.</p>
-
-    <form method="post" class="space-y-4">
-        {% csrf_token %}
-        {{ form.non_field_errors }}
-
-        <div>
-            <label for="id_first_name" class="block text-sm">Prénom</label>
-            {{ form.first_name }}
-            {{ form.first_name.errors }}
-        </div>
-        <div>
-            <label for="id_last_name" class="block text-sm">Nom</label>
-            {{ form.last_name }}
-            {{ form.last_name.errors }}
-        </div>
-        <div>
-            <label for="id_email" class="block text-sm">Email</label>
-            {{ form.email }}
-            {{ form.email.errors }}
-        </div>
-        <div>
-            <label for="id_password1" class="block text-sm">Mot de passe</label>
-            {{ form.password1 }}
-            {{ form.password1.errors }}
-        </div>
-        <div>
-            <label for="id_password2" class="block text-sm">Confirmer le mot de passe</label>
-            {{ form.password2 }}
-            {{ form.password2.errors }}
-        </div>
-
-        <button type="submit" class="w-full bg-medic-blue text-white py-2 rounded hover:bg-medic-blue-dark transition">
-            Créer mon compte
-        </button>
-    </form>
+<!-- Header gradient - BLEU -->
+<div class="bg-gradient-medical py-12">
+    <div class="max-w-7xl mx-auto px-4 text-center">
+        <h1 class="text-3xl md:text-4xl font-bold text-white mb-4">
+            {% if is_admin_creating %}
+                <svg class="w-8 h-8 inline-block mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Créer un utilisateur
+            {% else %}
+                Rejoignez MedicAnon
+            {% endif %}
+        </h1>
+        <p class="text-xl text-white/90 max-w-2xl mx-auto">
+            {{ page_subtitle }}
+        </p>
+        
+        {% if is_admin_creating %}
+            <div class="mt-4">
+                <a href="{% url 'manage_users' %}" class="inline-flex items-center text-white/80 hover:text-white transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Retour à la gestion des utilisateurs
+                </a>
+            </div>
+        {% endif %}
+    </div>
 </div>
+
+<!-- Formulaire d'inscription -->
+<div class="py-12 bg-gradient-soft min-h-screen">
+    <div class="max-w-md mx-auto">
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-4 p-4 rounded-lg {% if message.tags == 'success' %}bg-green-50 border border-green-200 text-green-700{% else %}bg-red-50 border border-red-200 text-red-700{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Carte principale -->
+        <div class="card p-8 shadow-soft">
+            <!-- En-tête -->
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    {% if is_admin_creating %}
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                    {% else %}
+                        <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    {% endif %}
+                </div>
+                <h2 class="text-2xl font-bold text-neutral-900 mb-2">
+                    {% if is_admin_creating %}
+                        Nouveau utilisateur
+                    {% else %}
+                        Inscription Visiteur
+                    {% endif %}
+                </h2>
+                <p class="text-neutral-600">
+                    {% if is_admin_creating %}
+                        Créez un compte utilisateur avec le rôle approprié
+                    {% else %}
+                        Accédez à notre hub de données médicales anonymisées
+                    {% endif %}
+                </p>
+            </div>
+
+            <!-- Formulaire -->
+            <form method="post" class="space-y-6" id="signup-form">
+                {% csrf_token %}
+                
+                <!-- Erreurs générales -->
+                {% if form.non_field_errors %}
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        <svg class="w-5 h-5 text-red-400 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div>
+                            {% for error in form.non_field_errors %}
+                                <p class="text-red-700 text-sm">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Username -->
+                <div class="form-group">
+                    <label for="{{ form.username.id_for_label }}" class="form-label">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        Nom d'utilisateur
+                    </label>
+                    {{ form.username }}
+                    {% if form.username.help_text %}
+                        <p class="text-xs text-neutral-500 mt-1">{{ form.username.help_text }}</p>
+                    {% endif %}
+                    {% if form.username.errors %}
+                        {% for error in form.username.errors %}
+                            <p class="form-error text-red-600 text-sm mt-1">{{ error }}</p>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <!-- Nom et Prénom sur la même ligne -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-group">
+                        <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                            Prénom
+                        </label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}
+                            {% for error in form.first_name.errors %}
+                                <p class="form-error text-red-600 text-sm mt-1">{{ error }}</p>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                            Nom
+                        </label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}
+                            {% for error in form.last_name.errors %}
+                                <p class="form-error text-red-600 text-sm mt-1">{{ error }}</p>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="{{ form.email.id_for_label }}" class="form-label">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path>
+                        </svg>
+                        Adresse email
+                    </label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                        {% for error in form.email.errors %}
+                            <p class="form-error text-red-600 text-sm mt-1">{{ error }}</p>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <!-- Rôle (visible seulement pour les admins) -->
+                {% if is_admin_creating %}
+                <div class="form-group">
+                    <label for="{{ form.role.id_for_label }}" class="form-label">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                        Rôle utilisateur
+                    </label>
+                    {{ form.role }}
+                    {% if form.role.errors %}
+                        {% for error in form.role.errors %}
+                            <p class="form-error text-red-600 text-sm mt-1">{{ error }}</p>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                {% else %}
+                    {{ form.role }}  <!-- Champ caché pour les visiteurs -->
+                {% endif %}
+
+                <!-- Mot de passe -->
+                <div class="form-group">
+                    <label for="{{ form.password1.id_for_label }}" class="form-label">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                        Mot de passe
+                    </label>
+                    <div class="relative">
+                        {{ form.password1 }}
+                        <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center password-toggle" data-target="{{ form.password1.id_for_label }}">
+                            <svg class="w-4 h-4 text-neutral-400 show-password" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 616 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                            <svg class="w-4 h-4 text-neutral-400 hide-password hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    {% if form.password1.errors %}
+                        {% for error in form.password1.errors %}
+                            <p class="form-error text-red-600 text-sm mt-1">{{ error }}</p>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <!-- Indicateur de force du mot de passe (seulement pour les visiteurs) -->
+                    {% if not is_admin_creating %}
+                    <div class="mt-2">
+                        <div class="password-strength-meter">
+                            <div class="password-strength-bar" id="password-strength-bar"></div>
+                        </div>
+                        <p class="text-xs text-neutral-500 mt-1" id="password-strength-text">
+                            Le mot de passe doit contenir au moins 8 caractères
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Confirmation mot de passe -->
+                <div class="form-group">
+                    <label for="{{ form.password2.id_for_label }}" class="form-label">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Confirmer le mot de passe
+                    </label>
+                    <div class="relative">
+                        {{ form.password2 }}
+                        <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center password-toggle" data-target="{{ form.password2.id_for_label }}">
+                            <svg class="w-4 h-4 text-neutral-400 show-password" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 616 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                            <svg class="w-4 h-4 text-neutral-400 hide-password hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    {% if form.password2.errors %}
+                        {% for error in form.password2.errors %}
+                            <p class="form-error text-red-600 text-sm mt-1">{{ error }}</p>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <!-- Conditions d'utilisation (seulement pour les visiteurs) -->
+                {% if not is_admin_creating %}
+                <!-- <div class="bg-neutral-50 border border-neutral-200 rounded-lg p-4">
+                    <div class="flex items-start space-x-3">
+                        <svg class="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                        <div class="text-sm text-neutral-600">
+                            <p class="font-medium text-neutral-900 mb-1">Sécurité et confidentialité</p>
+                            <p>En créant un compte, vous acceptez nos conditions d'utilisation et notre politique de confidentialité. Toutes les données sont traitées conformément au RGPD.</p>
+                        </div>
+                    </div>
+                </div> -->
+                {% endif %}
+
+                <!-- Bouton de soumission -->
+                <button type="submit" class="btn btn-primary w-full" id="submit-btn">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {% if is_admin_creating %}
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        {% else %}
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        {% endif %}
+                    </svg>
+                    <span class="btn-text">
+                        {% if is_admin_creating %}
+                            Créer l'utilisateur
+                        {% else %}
+                            Créer mon compte
+                        {% endif %}
+                    </span>
+                    <svg class="w-5 h-5 ml-2 animate-spin hidden loading-spinner" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </form>
+
+            <!-- Lien de connexion (seulement pour les visiteurs) -->
+            {% if not is_admin_creating %}
+            <div class="mt-8 text-center">
+                <p class="text-neutral-600">
+                    Vous avez déjà un compte ?
+                    <a href="{% url 'login' %}" class="text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                        Se connecter
+                    </a>
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Avantages (seulement pour les visiteurs) -->
+        {% if not is_admin_creating %}
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="text-center p-4">
+                <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                </div>
+                <h3 class="font-semibold text-neutral-900 mb-1">Sécurisé</h3>
+                <p class="text-sm text-neutral-600">Données 100% anonymisées</p>
+            </div>
+            
+            <div class="text-center p-4">
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M12 10v6m0 0l-4-4m4 4l4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h3 class="font-semibold text-neutral-900 mb-1">Accès libre</h3>
+                <p class="text-sm text-neutral-600">Téléchargement gratuit</p>
+            </div>
+            
+            <div class="text-center p-4">
+                <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h3 class="font-semibold text-neutral-900 mb-1">Conformité</h3>
+                <p class="text-sm text-neutral-600">Respecte le RGPD</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.password-strength-meter {
+    width: 100%;
+    height: 4px;
+    background-color: #e5e7eb;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.password-strength-bar {
+    height: 100%;
+    transition: all 0.3s ease;
+    border-radius: 2px;
+}
+
+.strength-none { background-color: #e5e7eb; }
+.strength-weak { background-color: #ef4444; }
+.strength-fair { background-color: #f59e0b; }
+.strength-good { background-color: #10b981; }
+.strength-strong { background-color: #059669; }
+
+.form-group {
+    position: relative;
+}
+
+.form-label {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
+.form-input {
+    transition: all 0.2s ease;
+}
+
+.form-input:focus {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.card {
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.btn {
+    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
+
+.btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 shadow-sm hover:shadow;
+}
+
+.card {
+    @apply bg-white rounded-lg border border-neutral-200;
+}
+
+/* THÈME BLEU */
+.bg-gradient-blue {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.bg-gradient-soft {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // const isAdminCreating = {{ is_admin_creating|yesno:"true,false" }};
+    const isAdminCreating = document.body.dataset.isAdminCreating === 'true';
+
+
+    // Validation en temps réel du username
+    const usernameField = document.getElementById('{{ form.username.id_for_label }}');
+    if (usernameField) {
+        usernameField.addEventListener('input', function() {
+            const username = this.value;
+            
+            // Validation basique côté client
+            if (username.length > 0 && username.length < 3) {
+                this.setCustomValidity('Le nom d\'utilisateur doit contenir au moins 3 caractères');
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+    }
+
+    // Toggle password visibility
+    document.querySelectorAll('.password-toggle').forEach(toggle => {
+        toggle.addEventListener('click', function() {
+            const targetId = this.dataset.target;
+            const passwordField = document.getElementById(targetId);
+            const showIcon = this.querySelector('.show-password');
+            const hideIcon = this.querySelector('.hide-password');
+
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                showIcon.classList.add('hidden');
+                hideIcon.classList.remove('hidden');
+            } else {
+                passwordField.type = 'password';
+                showIcon.classList.remove('hidden');
+                hideIcon.classList.add('hidden');
+            }
+        });
+    });
+
+    // Password strength meter (seulement pour les visiteurs)
+    if (!isAdminCreating) {
+        const passwordField = document.getElementById('{{ form.password1.id_for_label }}');
+        const strengthBar = document.getElementById('password-strength-bar');
+        const strengthText = document.getElementById('password-strength-text');
+
+        if (passwordField && strengthBar && strengthText) {
+            passwordField.addEventListener('input', function() {
+                const password = this.value;
+                const strength = calculatePasswordStrength(password);
+                
+                // Update strength bar
+                strengthBar.className = `password-strength-bar strength-${strength.level}`;
+                strengthBar.style.width = `${strength.percentage}%`;
+                
+                // Update text
+                strengthText.textContent = strength.message;
+                strengthText.className = `text-xs mt-1 text-${strength.color}`;
+            });
+        }
+    }
+
+    function calculatePasswordStrength(password) {
+        let score = 0;
+        let feedback = [];
+
+        if (password.length >= 8) score += 20;
+        else feedback.push('au moins 8 caractères');
+
+        if (/[a-z]/.test(password)) score += 20;
+        else feedback.push('une minuscule');
+
+        if (/[A-Z]/.test(password)) score += 20;
+        else feedback.push('une majuscule');
+
+        if (/[0-9]/.test(password)) score += 20;
+        else feedback.push('un chiffre');
+
+        if (/[^A-Za-z0-9]/.test(password)) score += 20;
+        else feedback.push('un caractère spécial');
+
+        let level, message, color;
+
+        if (score === 0) {
+            level = 'none';
+            message = 'Entrez un mot de passe';
+            color = 'gray-500';
+        } else if (score <= 40) {
+            level = 'weak';
+            message = `Faible - Ajoutez: ${feedback.join(', ')}`;
+            color = 'red-600';
+        } else if (score <= 60) {
+            level = 'fair';
+            message = `Moyen - Ajoutez: ${feedback.join(', ')}`;
+            color = 'yellow-600';
+        } else if (score <= 80) {
+            level = 'good';
+            message = 'Bon mot de passe';
+            color = 'blue-600';
+        } else {
+            level = 'strong';
+            message = 'Excellent mot de passe !';
+            color = 'green-600';
+        }
+
+        return { level, percentage: score, message, color };
+    }
+
+    // Form submission with loading state
+    const form = document.getElementById('signup-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const loadingSpinner = submitBtn.querySelector('.loading-spinner');
+
+    form.addEventListener('submit', function() {
+        submitBtn.disabled = true;
+        if (isAdminCreating) {
+            btnText.textContent = 'Création en cours...';
+        } else {
+            btnText.textContent = 'Création en cours...';
+        }
+        loadingSpinner.classList.remove('hidden');
+    });
+});
+</script>
 {% endblock %}

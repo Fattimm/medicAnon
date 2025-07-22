@@ -1,7 +1,6 @@
 import csv
 import io
 import hashlib
-import spacy
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.shortcuts import render, redirect, get_object_or_404
@@ -11,10 +10,7 @@ from django.core.paginator import Paginator
 from django.contrib import messages
 from django.db import transaction
 from django.urls import reverse
-import PyPDF2
-import pdfplumber
-from docx import Document
-from .models import Utilisateur, Fichier, Historique, Métriques, RapportConformité, Données, RègleAnonymisation
+from .models import Utilisateur, Fichier, Historique, Métriques, RapportConformité
 import pandas as pd
 import os
 from django.core.files.base import ContentFile
@@ -23,10 +19,14 @@ import re
 from datetime import datetime
 import secrets
 from django.views.decorators.http import require_GET
+from .forms import CustomUserCreationForm
+from django.core.exceptions import PermissionDenied
+from django.utils import timezone 
+import pickle
+import gzip
+from django.utils.text import slugify
 
 
-# Charger le modèle spaCy une seule fois
-nlp = spacy.load("fr_core_news_sm")
 
 # Dictionnaires étendus pour le Sénégal
 SENEGALESE_FIRSTNAMES = [
@@ -45,117 +45,241 @@ SENEGALESE_LASTNAMES = [
 
 # Patterns de détection améliorés
 MEDICAL_PATTERNS = {
+    # === DONNÉES D'IDENTITÉ CLASSIQUES ===
+    'nom': r'\b(nom|name|lastname|surname|family)\b',
+    'prenom': r'\b(prenom|firstname|given)\b',
     'patient_id': r'\b(patient|id|identifiant)[\s_-]*(id|num|numero|number)?\b',
-    'phone': r'\b(\+221\s?)?[0-9]{2}[\s.-]?[0-9]{3}[\s.-]?[0-9]{2}[\s.-]?[0-9]{2}\b',
-    'email': r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-    'date_birth': r'\b(date[\s_-]*naissance|birth[\s_-]*date|ddn|dob)\b',
+    'phone': r'\b(telephone|phone|mobile|tel|gsm)\b',
+    'email': r'\b(email|mail|courriel)\b',
+    'date_naissance': r'\b(date[\s_-]*naissance|birth[\s_-]*date|ddn|dob|age)\b',
     'address': r'\b(adresse|address|domicile|residence)\b',
-    'medical_id': r'\b(cni|carte[\s_-]*identite|passport|passeport)\b'
+    'cni': r'\b(cni|carte[\s_-]*identite|passport|passeport)\b',
+    
+    # === NOUVEAUX PATTERNS MÉDICAUX ===
+    # Diagnostic et pathologies
+    'diagnostic': r'\b(diagnostic|pathologie|maladie|disease|illness|condition|syndrome|trouble)\b',
+    'symptoms': r'\b(symptome|symptom|signe|manifestation)\b',
+    'treatment': r'\b(traitement|treatment|medicament|medication|prescription|ordonnance)\b',
+    
+    # Données biométriques et physiologiques
+    'blood_group': r'\b(groupe[\s_-]*sanguin|blood[\s_-]*group|rhesus|rh)\b',
+    'weight': r'\b(poids|weight|masse)\b',
+    'height': r'\b(taille|height|size)\b',
+    'blood_pressure': r'\b(tension|pressure|systolique|diastolique)\b',
+    'temperature': r'\b(temperature|fievre|fever)\b',
+    
+    # Données démographiques sensibles
+    'gender': r'\b(sexe|genre|gender|sex)\b',
+    'religion': r'\b(religion|confession|culte)\b',
+    'ethnicity': r'\b(ethnie|race|origine|tribu)\b',
+    
+    # Données administratives médicales
+    'medical_number': r'\b(numero[\s_-]*medical|medical[\s_-]*id|dossier[\s_-]*medical)\b',
+    'insurance': r'\b(assurance|mutuelle|couverture|insurance)\b',
+    'doctor': r'\b(medecin|docteur|doctor|praticien)\b',
+    'hospital': r'\b(hopital|hospital|clinique|centre[\s_-]*sante)\b',
+    
+    # Données financières médicales
+    'medical_cost': r'\b(cout|cost|prix|tarif|facture|bill)\b',
+    
+    # Spécificités sénégalaises
+    'wolof_names': r'\b(anta|modou|fatou|pape|cheikh|aminata|moussa|binta)\b',
+    'senegal_locations': r'\b(dakar|thies|kaolack|saint[\s_-]*louis|ziguinchor|diourbel|tambacounda|kolda|matam|sedhiou|kaffrine|kedougou|fatick|louga)\b',
 }
 
-def detect_ipi_fields_enhanced(fichier):
-    """Détection améliorée des champs IPI"""
-    ipi_fields = []
-    text = extract_text_from_file(fichier.fichier)
+ENHANCED_SENSITIVITY_WEIGHTS = {
+    # === DONNÉES DE SANTÉ (Article 9 RGPD) - SENSIBILITÉ MAXIMALE ===
+    'diagnostic': 50,      # LE PLUS SENSIBLE
+    'pathologie': 50,
+    'symptoms': 45,
+    'treatment': 45,
+    'blood_group': 40,     # Données biométriques
+    'medical_number': 40,
+    'blood_pressure': 35,
+    'weight': 30,
+    'height': 25,
+    'temperature': 25,
     
-    if not text:
+    # === DONNÉES D'IDENTITÉ (Article 6 RGPD) ===
+    'cni': 40,
+    'nom': 35,
+    'prenom': 30,
+    'date_naissance': 30,
+    'adresse': 25,
+    'telephone': 20,
+    'email': 20,
+    'patient_id': 25,
+    
+    # === DONNÉES DÉMOGRAPHIQUES SENSIBLES (Article 9) ===
+    'gender': 25,         # Ajouté pour "sexe"
+    'religion': 30,
+    'ethnicity': 35,
+    
+    # === DONNÉES ADMINISTRATIVES ===
+    'insurance': 25,
+    'doctor': 20,
+    'hospital': 15,
+    'medical_cost': 20,
+    
+    # === DONNÉES GÉOGRAPHIQUES/CULTURELLES ===
+    'wolof_names': 35,
+    'senegal_locations': 15,
+}
+
+
+# Nouvelle fonction uniquement CSV
+def detect_ipi_fields_csv_only(fichier):
+    """
+    Détection IPI améliorée avec support des champs médicaux
+    """
+    ipi_fields = []
+    
+    if not fichier.nom_fichier.lower().endswith('.csv'):
         return ipi_fields
     
-    file_extension = fichier.fichier.name.split('.')[-1].lower()
-    
-    if file_extension == 'csv':
+    try:
         fichier.fichier.seek(0)
         decoded_file = fichier.fichier.read().decode('utf-8', errors='ignore')
         csv_reader = csv.reader(io.StringIO(decoded_file))
         headers = next(csv_reader, [])
         
-        # Analyser les en-têtes
+        # === ÉTAPE 1: DÉTECTION PAR PATTERNS ===
+        detected_by_pattern = []
         for header in headers:
             header_lower = header.lower().strip()
             
-            # Vérifications par patterns
             for pattern_name, pattern in MEDICAL_PATTERNS.items():
                 if re.search(pattern, header_lower, re.IGNORECASE):
-                    ipi_fields.append(header)
+                    if header not in detected_by_pattern:
+                        detected_by_pattern.append(header)
+                        print(f"✅ '{header}' détecté par pattern '{pattern_name}'")
                     break
-            
-            # Vérifications par mots-clés spécifiques
-            keywords = ['nom', 'prenom', 'name', 'firstname', 'lastname', 'age', 'sexe', 
-                       'telephone', 'phone', 'email', 'adresse', 'address', 'patient']
-            
-            if any(keyword in header_lower for keyword in keywords):
-                if header not in ipi_fields:
-                    ipi_fields.append(header)
         
-        # Analyser un échantillon de données pour validation
+        # === ÉTAPE 2: VALIDATION PAR CONTENU ===
         sample_rows = []
         for i, row in enumerate(csv_reader):
             if i >= 10:  # Analyser 10 lignes max
                 break
             sample_rows.append(row)
         
-        # Validation des champs détectés avec les données
         validated_fields = []
-        for field in ipi_fields:
+        for field in detected_by_pattern:
             field_index = headers.index(field) if field in headers else -1
             if field_index != -1:
-                # Vérifier si la colonne contient des données sensibles
                 contains_sensitive = False
                 for row in sample_rows:
                     if field_index < len(row):
                         cell_value = row[field_index].strip()
-                        if is_sensitive_data(cell_value):
+                        if is_sensitive_data_enhanced(cell_value, field):
                             contains_sensitive = True
                             break
                 
                 if contains_sensitive:
                     validated_fields.append(field)
         
-        return list(set(validated_fields)) if validated_fields else list(set(ipi_fields))
-    
-    else:  # PDF, DOCX
-        doc = nlp(text)
-        entities_found = []
+        # === ÉTAPE 3: DÉTECTION AUTOMATIQUE POUR CHAMPS MÉDICAUX COURANTS ===
+        # Ajouter automatiquement certains champs s'ils contiennent des valeurs typiques
+        medical_auto_detect = {
+            'diagnostic': ['asthme', 'allergie', 'hypertension', 'diabete', 'malaria', 'paludisme'],
+            'groupe_sanguin': ['a+', 'a-', 'b+', 'b-', 'ab+', 'ab-', 'o+', 'o-'],
+            'sexe': ['m', 'f', 'h', 'homme', 'femme', 'male', 'female']
+        }
         
-        for ent in doc.ents:
-            if ent.label_ in ['PER', 'LOC', 'ORG']:
-                entities_found.append(f"Entité_{ent.label_}_{hash(ent.text) % 100}")
+        for header in headers:
+            header_lower = header.lower().strip()
+            field_index = headers.index(header)
+            
+            # Vérifier si le champ correspond à des patterns médicaux connus
+            for medical_type, keywords in medical_auto_detect.items():
+                if medical_type in header_lower or any(keyword in header_lower for keyword in keywords):
+                    # Valider avec le contenu
+                    for row in sample_rows:
+                        if field_index < len(row):
+                            cell_value = row[field_index].strip().lower()
+                            if any(keyword in cell_value for keyword in keywords):
+                                if header not in validated_fields:
+                                    validated_fields.append(header)
+                                    print(f"🔍 '{header}' auto-détecté comme champ médical ({medical_type})")
+                                break
         
-        # Recherche de noms sénégalais
-        for fname in SENEGALESE_FIRSTNAMES:
-            if fname.lower() in text.lower():
-                entities_found.append(f"Prénom_Sénégalais")
-                break
+        return list(set(validated_fields))
         
-        for lname in SENEGALESE_LASTNAMES:
-            if lname.lower() in text.lower():
-                entities_found.append(f"Nom_Sénégalais")
-                break
-        
-        return list(set(entities_found))
+    except Exception as e:
+        print(f"Erreur détection IPI améliorée: {e}")
+        return []
 
-def is_sensitive_data(value):
-    """Vérifie si une valeur contient des données sensibles"""
-    if not value or len(value.strip()) < 2:
+def is_sensitive_data_enhanced(value, field_name=""):
+    """
+    Validation améliorée des données sensibles avec contexte du champ
+    """
+    if not value or len(value.strip()) < 1:
         return False
     
-    value = value.strip()
+    value = value.strip().lower()
+    field_lower = field_name.lower()
     
-    # Vérifications spécifiques
-    checks = [
-        # Email
-        re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', value),
-        # Téléphone sénégalais
-        re.search(r'\b(\+221\s?)?[0-9]{2}[\s.-]?[0-9]{3}[\s.-]?[0-9]{2}[\s.-]?[0-9]{2}\b', value),
-        # Date de naissance
-        re.search(r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b', value),
-        # Noms sénégalais
-        any(name.lower() in value.lower() for name in SENEGALESE_FIRSTNAMES + SENEGALESE_LASTNAMES),
-        # Adresse (contient des mots comme rue, avenue, etc.)
-        re.search(r'\b(rue|avenue|boulevard|quartier|villa|lot)\b', value, re.IGNORECASE)
+    # === VALIDATION PAR TYPE DE CHAMP ===
+    
+    # Diagnostics médicaux
+    if 'diagnostic' in field_lower or 'pathologie' in field_lower:
+        medical_terms = ['asthme', 'allergie', 'hypertension', 'diabete', 'malaria', 
+                        'paludisme', 'tuberculose', 'vih', 'sida', 'cancer']
+        return any(term in value for term in medical_terms)
+    
+    # Groupes sanguins
+    if 'sang' in field_lower or 'blood' in field_lower:
+        blood_groups = ['a+', 'a-', 'b+', 'b-', 'ab+', 'ab-', 'o+', 'o-']
+        return value in blood_groups
+    
+    # Sexe/Genre
+    if 'sexe' in field_lower or 'genre' in field_lower:
+        return value in ['m', 'f', 'h', 'homme', 'femme', 'male', 'female']
+    
+    # === PATTERNS GÉNÉRAUX (existants) ===
+    patterns = [
+        r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$',  # Email
+        r'^(\+221\s?)?\d{2}[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}$',  # Téléphone
+        r'^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$',  # Date
+        r'\b(rue|avenue|boulevard|quartier|villa|lot)\b',  # Adresse
     ]
     
-    return any(checks)
+    for pattern in patterns:
+        if re.search(pattern, value, re.IGNORECASE):
+            return True
+    
+    # Noms sénégalais
+    SENEGALESE_NAMES = [
+        "Awa", "Fatou", "Pape", "Fatoumata", "Modou", "Cheikh", "Amadou", 
+        "Aminata", "Mariama", "Ousmane", "Ibrahima", "Abdoulaye"
+    ]
+    
+    if any(name.lower() in value for name in SENEGALESE_NAMES):
+        return True
+    
+    return False
+
+def calculate_enhanced_sensitivity_score(fields):
+    """
+    Calcul du score de sensibilité avec les poids améliorés
+    """
+    total_weight = 0
+    
+    for field in fields:
+        field_lower = field.lower()
+        
+        # Rechercher le poids le plus approprié
+        field_weight = 0
+        for pattern, weight in ENHANCED_SENSITIVITY_WEIGHTS.items():
+            if pattern in field_lower:
+                field_weight = max(field_weight, weight)  # Prendre le poids le plus élevé
+        
+        # Poids par défaut pour champs non reconnus
+        if field_weight == 0:
+            field_weight = 15
+        
+        total_weight += field_weight
+    
+    return min(100, total_weight)
 
 def anonymize_data_enhanced(headers, rows, selected_ipi, methods):
     """Anonymisation améliorée avec de meilleures méthodes"""
@@ -185,12 +309,6 @@ def anonymize_data_enhanced(headers, rows, selected_ipi, methods):
                     new_row.append(pseudonym_mapping[original_value])
                     colonnes_anonymisees += 1
                 
-                elif method == 'generalisation':
-                    # Généralisation intelligente
-                    generalized = generalize_value(original_value, header)
-                    new_row.append(generalized)
-                    colonnes_anonymisees += 1
-                
                 elif method == 'hachage':
                     # Hachage avec salt
                     salt = "medic_anon_salt_2024"
@@ -206,57 +324,6 @@ def anonymize_data_enhanced(headers, rows, selected_ipi, methods):
         anonymized_rows.append(new_row)
     
     return anonymized_rows, colonnes_anonymisees
-
-def generalize_value(value, field_type):
-    """Généralisation intelligente selon le type de champ"""
-    value_str = str(value).strip().lower()
-    field_lower = field_type.lower()
-    
-    # Généralisation d'âge
-    if 'age' in field_lower or re.search(r'\b\d{1,3}\b', value):
-        try:
-            age = int(re.search(r'\d+', value).group())
-            if age < 18:
-                return "Mineur"
-            elif age < 30:
-                return "18-29 ans"
-            elif age < 50:
-                return "30-49 ans"
-            elif age < 70:
-                return "50-69 ans"
-            else:
-                return "70+ ans"
-        except:
-            return "Age non spécifié"
-    
-    # Généralisation de date
-    if 'date' in field_lower or 'naissance' in field_lower:
-        try:
-            # Extraire juste l'année
-            year_match = re.search(r'\b(19|20)\d{2}\b', value)
-            if year_match:
-                year = int(year_match.group())
-                decade = (year // 10) * 10
-                return f"Années {decade}s"
-        except:
-            pass
-        return "Période non spécifiée"
-    
-    # Généralisation de téléphone
-    if 'phone' in field_lower or 'telephone' in field_lower:
-        return "7X-XXX-XX-XX"
-    
-    # Généralisation d'email
-    if '@' in value_str:
-        domain = value_str.split('@')[-1] if '@' in value_str else ""
-        return f"utilisateur@{domain}" if domain else "email@domaine.com"
-    
-    # Généralisation d'adresse
-    if 'adresse' in field_lower or 'address' in field_lower:
-        return "Région de Dakar"
-    
-    # Par défaut
-    return "Valeur généralisée"
 
 # Fonction améliorée pour le calcul du score de sécurité
 def calculate_advanced_security_score(fields, methods, file_size=0):
@@ -283,7 +350,6 @@ def calculate_advanced_security_score(fields, methods, file_size=0):
         'suppression': 30,      # Données complètement supprimées
         'hachage': 35,          # Irréversible cryptographiquement
         'pseudonymisation': 25, # Réversible avec clé
-        'generalisation': 20,   # Perte de précision
         'none': 0               # Aucune protection
     }
     
@@ -355,7 +421,6 @@ def evaluate_gdpr_compliance(fichier, selected_fields, methods):
         'suppression': {'score': 25, 'risk': 'Faible', 'reversible': False},
         'hachage': {'score': 30, 'risk': 'Très faible', 'reversible': False},
         'pseudonymisation': {'score': 20, 'risk': 'Moyen', 'reversible': True},
-        'generalisation': {'score': 15, 'risk': 'Moyen', 'reversible': False},
         'none': {'score': 0, 'risk': 'Élevé', 'reversible': True}
     }
     
@@ -476,20 +541,164 @@ def format_compliance_display(compliance_data):
     }
 
 def register_view(request):
-    if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save(commit=False)
-            user.role = 'Visiteur'  # role forcé
-            user.email = request.POST.get('email')
-            user.first_name = request.POST.get('first_name')
-            user.last_name = request.POST.get('last_name')
-            user.save()
-            login(request, user)
-            return redirect('public_hub')
+    """
+    Vue d'inscription qui s'adapte selon le contexte :
+    - Visiteurs : inscription publique avec rôle fixe "Visiteur"
+    - Admins connectés : peuvent créer des utilisateurs avec n'importe quel rôle
+    """
+    
+    # Déterminer le contexte
+    is_admin_creating = (
+        request.user.is_authenticated and 
+        request.user.role == 'Administrateur'
+    )
+    
+    # Si un admin est connecté, on est en mode "création d'utilisateur par admin"
+    if is_admin_creating:
+        page_title = "Créer un utilisateur"
+        page_subtitle = "Création d'un nouveau compte utilisateur"
+        success_redirect = 'manage_users'  # Rediriger vers la liste des utilisateurs
     else:
-        form = UserCreationForm()
-    return render(request, 'medicanon/register.html', {'form': form})
+        page_title = "Inscription"
+        page_subtitle = "Créez votre compte visiteur pour accéder aux données médicales anonymisées"
+        success_redirect = 'login'  # Rediriger vers la page de connexion
+    
+    if request.method == 'POST':
+        form = CustomUserCreationForm(
+            request.POST, 
+            is_admin_creating=is_admin_creating,
+            user=request.user if request.user.is_authenticated else None
+        )
+        
+        if form.is_valid():
+            user = form.save()
+            
+            if is_admin_creating:
+                # Message pour admin
+                messages.success(
+                    request, 
+                    f"Utilisateur '{user.username}' créé avec succès avec le rôle {user.role}."
+                )
+                return redirect(success_redirect)
+            else:
+                # Message pour nouveau visiteur + connexion automatique
+                messages.success(
+                    request, 
+                    f"Compte créé avec succès ! Bienvenue {user.first_name} !"
+                )
+                login(request, user)  # Connexion automatique pour les nouveaux visiteurs
+                return redirect('dashboard')  # ou la page d'accueil
+        else:
+            # Erreurs de validation
+            for field, errors in form.errors.items():
+                for error in errors:
+                    if field == '__all__':
+                        messages.error(request, f"{error}")
+                    else:
+                        field_label = form.fields[field].label if field in form.fields else field
+                        messages.error(request, f"{field_label}: {error}")
+    else:
+        form = CustomUserCreationForm(
+            is_admin_creating=is_admin_creating,
+            user=request.user if request.user.is_authenticated else None
+        )
+    
+    context = {
+        'form': form,
+        'is_admin_creating': is_admin_creating,
+        'page_title': page_title,
+        'page_subtitle': page_subtitle,
+    }
+    
+    return render(request, 'medicanon/register.html', context)
+
+@login_required
+def manage_users(request):
+    """
+    Vue pour lister et gérer les utilisateurs (admins uniquement)
+    Les actions de modification/suppression restent ici
+    """
+    
+    # Vérifier que l'utilisateur est admin
+    if request.user.role != 'Administrateur':
+        raise PermissionDenied("Accès réservé aux administrateurs")
+    
+    if request.method == 'POST':
+        # Mise à jour du rôle d'un utilisateur
+        if 'update_role' in request.POST:
+            try:
+                user_id = request.POST.get('user_id')
+                new_role = request.POST.get('new_role')
+                
+                if not user_id or not new_role:
+                    messages.error(request, "Données manquantes pour la mise à jour.")
+                    return redirect('manage_users')
+                
+                user = get_object_or_404(Utilisateur, id=user_id)
+                
+                # Empêcher un admin de retirer ses propres privilèges
+                if user.id == request.user.id and new_role != 'Administrateur':
+                    messages.error(request, "Vous ne pouvez pas modifier votre propre rôle d'administrateur.")
+                    return redirect('manage_users')
+                
+                old_role = user.role
+                user.role = new_role
+                user.save()
+                
+                messages.success(request, f"Rôle de '{user.username}' modifié de {old_role} vers {new_role}.")
+                
+            except Utilisateur.DoesNotExist:
+                messages.error(request, "Utilisateur introuvable.")
+            except Exception as e:
+                messages.error(request, f"Erreur lors de la mise à jour : {str(e)}")
+        
+        # Suppression d'un utilisateur
+        elif 'delete_user' in request.POST:
+            try:
+                user_id = request.POST.get('user_id')
+                
+                if not user_id:
+                    messages.error(request, "ID utilisateur manquant.")
+                    return redirect('manage_users')
+                
+                user = get_object_or_404(Utilisateur, id=user_id)
+                
+                # Empêcher l'auto-suppression
+                if user.id == request.user.id:
+                    messages.error(request, "Vous ne pouvez pas supprimer votre propre compte.")
+                    return redirect('manage_users')
+                
+                # Empêcher la suppression du dernier admin
+                if user.role == 'Administrateur':
+                    admin_count = Utilisateur.objects.filter(role='Administrateur').count()
+                    if admin_count <= 1:
+                        messages.error(request, "Impossible de supprimer le dernier administrateur.")
+                        return redirect('manage_users')
+                
+                username = user.username
+                user.delete()
+                
+                messages.success(request, f"Utilisateur '{username}' supprimé avec succès.")
+                
+            except Utilisateur.DoesNotExist:
+                messages.error(request, "Utilisateur introuvable.")
+            except Exception as e:
+                messages.error(request, f"Erreur lors de la suppression : {str(e)}")
+        
+        return redirect('manage_users')
+    
+    # GET request - afficher la page
+    users = Utilisateur.objects.all().order_by('-date_joined')
+    
+    context = {
+        'users': users,
+        'total_users': users.count(),
+        'admin_count': users.filter(role='Administrateur').count(),
+        'agent_count': users.filter(role='Agent').count(),
+        'visitor_count': users.filter(role='Visiteur').count(),
+    }
+    
+    return render(request, 'medicanon/manage_users.html', context)
 
 def accueil(request):
     return render(request, 'medicanon/accueil.html')
@@ -503,396 +712,416 @@ def redirect_after_login(request):
             return redirect('accueil')
     return redirect('login')
 
-@login_required
-def manage_users(request):
-    return render(request, 'medicanon/manage_users.html')
-
-def extract_text_from_file(file):
-    file_extension = file.name.split('.')[-1].lower()
-    text = ""
-    file.seek(0)
-    if file_extension == 'csv':
-        decoded_file = file.read().decode('utf-8', errors='ignore')
-        text = decoded_file
-    elif file_extension == 'pdf':
-        with pdfplumber.open(file) as pdf:
-            for page in pdf.pages:
-                text += page.extract_text() or ""
-    elif file_extension == 'docx':
-        doc = Document(io.BytesIO(file.read()))
-        for para in doc.paragraphs:
-            text += para.text + "\n"
-    return text
-
-def detect_ipi_fields(fichier):
-    ipi_fields = []
-    text = extract_text_from_file(fichier.fichier)
-    if not text:
-        return ipi_fields
-    file_extension = fichier.fichier.name.split('.')[-1].lower()
-    if file_extension in ['pdf', 'docx']:
-        doc = nlp(text)
-        for ent in doc.ents:
-            if ent.label_ in ['PER', 'LOC'] or any(fname in ent.text for fname in SENEGALESE_FIRSTNAMES) or any(lname in ent.text for lname in SENEGALESE_LASTNAMES):
-                ipi_fields.append(f"Champ_{hash(ent.text) % 10 + 1}")
-        return list(set(ipi_fields))
-    fichier.fichier.seek(0)
-    decoded_file = fichier.fichier.read().decode('utf-8', errors='ignore')
-    csv_reader = csv.reader(io.StringIO(decoded_file))
-    headers = next(csv_reader, [])
-    for header in headers:
-        doc = nlp(header.lower())
-        if any(ent.label_ in ['PER', 'LOC', 'ORG'] for ent in doc.ents) or \
-           any(fname.lower() in header.lower() for fname in SENEGALESE_FIRSTNAMES) or \
-           any(lname.lower() in header.lower() for lname in SENEGALESE_LASTNAMES) or \
-           any(kw.lower() in header.lower() for kw in ['patient', 'nom', 'prenom', 'adresse', 'email', 'telephone', 'date_naissance']):
-            ipi_fields.append(header)
-    for i, row in enumerate(csv_reader):
-        if i >= 5:
-            break
-        for cell in row:
-            doc = nlp(cell.lower())
-            if any(ent.label_ in ['PER', 'LOC'] for ent in doc.ents) or \
-               any(fname.lower() in cell.lower() for fname in SENEGALESE_FIRSTNAMES) or \
-               any(lname.lower() in cell.lower() for lname in SENEGALESE_LASTNAMES):
-                header_idx = row.index(cell)
-                if headers[header_idx] not in ipi_fields:
-                    ipi_fields.append(headers[header_idx])
-    return list(set(ipi_fields))
-
 def calculate_sensitivity_score(fields):
     sensitivity_weights = {'nom': 30, 'prenom': 25, 'adresse': 20, 'date_naissance': 15, 'email': 10, 'patient': 20}
     total_weight = sum(sensitivity_weights.get(field.lower(), 0) for field in fields)
     return min(100, total_weight)
 
-def anonymize_data(headers, rows, selected_ipi, methods):
-    anonymized_rows = []
-    colonnes_anonymisees = 0
-    for row in rows:
+def anonymize_with_complete_preservation(headers, original_rows, selected_ipi, methods):
+    """
+    Anonymise les champs sélectionnés et PRÉSERVE tous les autres champs intacts
+    """
+    print(f"=== DÉBUT ANONYMISATION ===")
+    print(f"Headers reçus: {headers}")
+    print(f"Nombre de lignes à traiter: {len(original_rows)}")
+    print(f"Champs à anonymiser: {selected_ipi}")
+    print(f"Méthodes: {methods}")
+    
+    processed_rows = []
+    anonymized_fields = []
+    preserved_fields = []
+    
+    # Identifier les champs préservés vs anonymisés
+    for header in headers:
+        if header in selected_ipi:
+            anonymized_fields.append(header)
+        else:
+            preserved_fields.append(header)
+    
+    print(f"Champs qui seront anonymisés: {anonymized_fields}")
+    print(f"Champs qui seront préservés: {preserved_fields}")
+    
+    # Créer un mapping de pseudonymes cohérent
+    pseudonym_mapping = {}
+    
+    # Traiter chaque ligne
+    for row_index, row in enumerate(original_rows):
         new_row = []
+        
         for i, cell in enumerate(row):
-            header = headers[i].lower() if headers else f"champ_{i+1}"
-            if header in [h.lower() for h in selected_ipi]:
-                method = methods.get(headers[i] if headers else f"champ_{i+1}", 'none')
+            header = headers[i] if i < len(headers) else f"champ_{i+1}"
+            
+            if header in selected_ipi:
+                # === CHAMP À ANONYMISER ===
+                method = methods.get(header, 'none')
+                original_value = str(cell).strip()
+                
                 if method == 'suppression':
-                    new_row.append("")
-                    colonnes_anonymisees += 1
+                    new_row.append("[SUPPRIMÉ]")
+                
                 elif method == 'pseudonymisation':
-                    new_row.append(f"user_{hash(cell) % 10000}")
-                    colonnes_anonymisees += 1
-                elif method == 'generalisation':
-                    new_row.append("Tranche")
-                    colonnes_anonymisees += 1
+                    # Pseudonymisation cohérente
+                    if original_value not in pseudonym_mapping:
+                        pseudonym_mapping[original_value] = f"USER_{secrets.randbelow(99999):05d}"
+                    new_row.append(pseudonym_mapping[original_value])
+                
                 elif method == 'hachage':
-                    new_row.append(hashlib.sha256(cell.encode()).hexdigest())
-                    colonnes_anonymisees += 1
+                    # Hachage avec salt
+                    salt = "medic_anon_salt_2024"
+                    hashed = hashlib.sha256((original_value + salt).encode()).hexdigest()[:16]
+                    new_row.append(f"HASH_{hashed}")
+                
                 else:
+                    # Si 'none', préserver la valeur originale
                     new_row.append(cell)
+            
             else:
-                new_row.append(cell)
-        anonymized_rows.append(new_row)
-    return anonymized_rows
+                # === CHAMP PRÉSERVÉ INTACT ===
+                new_row.append(cell)  # Garder la valeur originale
+        
+        processed_rows.append(new_row)
+        
+        # Debug pour les premières lignes
+        if row_index < 2:
+            print(f"Ligne {row_index + 1} originale: {row}")
+            print(f"Ligne {row_index + 1} traitée: {new_row}")
+    
+    result_info = {
+        'anonymized_fields': anonymized_fields,
+        'preserved_fields': preserved_fields,
+        'methods_used': methods,
+        'total_anonymized_columns': len(anonymized_fields),
+        'total_preserved_columns': len(preserved_fields)
+    }
+    
+    print(f"=== RÉSULTAT ANONYMISATION ===")
+    print(f"Lignes traitées: {len(processed_rows)}")
+    print(f"Colonnes anonymisées: {len(anonymized_fields)}")
+    print(f"Colonnes préservées: {len(preserved_fields)}")
+    
+    return processed_rows, result_info
 
+@login_required
+def download_from_binary(request, fichier_id):
+    """
+    NOUVELLE VUE : Télécharge les données depuis le stockage binaire
+    """
+    try:
+        fichier = get_object_or_404(Fichier, id=fichier_id, utilisateur=request.user)
+        
+        if fichier.statut != 'Anonymisé' or not fichier.donnees_completes_binaire:
+            messages.error(request, "Aucune donnée anonymisée disponible.")
+            return redirect('anonymize')
+        
+        # Récupérer toutes les données
+        all_data = fichier.get_toutes_les_donnees()
+        
+        if not all_data:
+            messages.error(request, "Erreur lors de la décompression des données.")
+            return redirect('anonymize')
+        
+        # Générer le CSV complet
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # En-têtes
+        writer.writerow(all_data['headers'])
+        
+        # Toutes les données
+        for row in all_data['rows']:
+            writer.writerow(row)
+        
+        csv_content = output.getvalue()
+        
+        # Réponse HTTP
+        response = HttpResponse(csv_content, content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="anonymized_complete_{fichier.nom_fichier}"'
+        
+        return response
+        
+    except Exception as e:
+        messages.error(request, f"Erreur téléchargement: {str(e)}")
+        return redirect('anonymize')
 
 @login_required
 def anonymize(request):
+    """
+    Vue principale pour le processus d'anonymisation en 5 étapes.
+    Cette version est corrigée pour un flux de travail logique et une sauvegarde robuste.
+    """
+    # --- Initialisation des variables ---
     step = int(request.GET.get('step', 1))
-    fichier_id = request.GET.get('fichier_id')  # Récupère l'ID depuis l'URL
-    uploaded_file = request.session.get('uploaded_file')  # Récupère depuis la session
-    fichiers = Fichier.objects.filter(utilisateur=request.user, statut__in=['Importé', 'En cours'])
-    methodes = ['Suppression', 'Pseudonymisation', 'Généralisation', 'Hachage']
-    ipi_fields = ['nom', 'prenom', 'date_naissance', 'adresse', 'email', 'telephone']  # Sera remplacé dynamiquement
-    sensitivity_score = 0
-    lignes_traitees = 0
-    colonnes_anonymisees = 0
-    taux_anonymisation = 0
-    score_securite = 0
-    analyse_risques = "Risque faible"
-    conformite = "Conforme RGPD/CDP"
-    recommandations = "Conserver dans un environnement sécurisé"
-    headers = None
-    original = None
-    anonymized = None
+    fichier_id = request.GET.get('fichier_id')
+    fichiers = Fichier.objects.filter(utilisateur=request.user).order_by('-date_import')
+    
+    # Variables pour le contexte du template
+    context_data = {
+        'uploaded_file': request.session.get('uploaded_file'),
+        'ipi_fields': [],
+        'sensitivity_score': 0,
+        'headers': [],
+        'original': [],
+        'anonymized': [],
+        'lignes_traitees': 0,
+        'colonnes_anonymisees': 0,
+        'taux_anonymisation': 0,
+        'score_securite': 0,
+    }
 
-    # Récupérer les informations du fichier si fichier_id existe et détecter les champs IPI
+    # --- ÉTAPE 1 & 2 : Récupération des infos du fichier si un ID est présent ---
     if fichier_id:
         try:
-            fichier_instance = Fichier.objects.get(id=fichier_id, utilisateur=request.user)
-            uploaded_file = {
+            fichier_instance = get_object_or_404(Fichier, id=fichier_id, utilisateur=request.user)
+            context_data['uploaded_file'] = {
                 'nom_fichier': fichier_instance.nom_fichier,
                 'extension': fichier_instance.nom_fichier.split('.')[-1].lower(),
                 'id': fichier_id
             }
-            request.session['uploaded_file'] = uploaded_file  # Mettre à jour la session
-            # Détecter les champs IPI dynamiquement
-            ipi_fields = detect_ipi_fields(fichier_instance)
-            sensitivity_score = calculate_sensitivity_score(ipi_fields)
+            request.session['uploaded_file'] = context_data['uploaded_file']
+            
+            if step == 2:
+                context_data['ipi_fields'] = detect_ipi_fields_csv_only(fichier_instance)
+                context_data['sensitivity_score'] = calculate_enhanced_sensitivity_score(context_data['ipi_fields'])
+
         except Fichier.DoesNotExist:
             messages.error(request, "Fichier introuvable.")
             if 'uploaded_file' in request.session:
-                del request.session['uploaded_file']  # Supprimer si invalide
+                del request.session['uploaded_file']
             return redirect('anonymize')
 
+    # --- Gestion des requêtes POST pour chaque étape ---
     if request.method == 'POST':
+        
+        # === ÉTAPE 1 : Import du fichier ===
         if 'fichier' in request.FILES:
-            uploaded_file = request.FILES['fichier']
-            file_extension = uploaded_file.name.split('.')[-1].lower()
-            if file_extension not in ['csv', 'pdf', 'docx']:
-                messages.error(request, "Format non supporté. Utilisez CSV, PDF ou DOCX.")
+            uploaded_file_obj = request.FILES['fichier']
+            if not uploaded_file_obj.name.lower().endswith('.csv'):
+                messages.error(request, "Seuls les fichiers CSV sont acceptés.")
                 return redirect('anonymize')
-            with transaction.atomic():
+            
+            try:
                 fichier_instance = Fichier.objects.create(
-                    fichier=uploaded_file,
-                    nom_fichier=uploaded_file.name,
+                    fichier=uploaded_file_obj,
+                    nom_fichier=uploaded_file_obj.name,
                     statut='Importé',
-                    utilisateur=request.user
+                    utilisateur=request.user,
+                    taille_originale=uploaded_file_obj.size # On stocke la taille dès l'import
                 )
-                fichier_id = str(fichier_instance.id)  # Stocke l'ID du fichier importé
-            uploaded_file = {'nom_fichier': uploaded_file.name, 'extension': file_extension, 'id': fichier_id}
-            request.session['uploaded_file'] = uploaded_file  # Stocker dans la session
-            messages.success(request, "Fichier importé avec succès.")
-            # Correction : Utiliser reverse avec les paramètres de requête
-            url = reverse('anonymize') + f'?step=2&fichier_id={fichier_id}'
-            return redirect(url)
+                request.session['uploaded_file'] = {
+                    'nom_fichier': fichier_instance.nom_fichier, 
+                    'extension': fichier_instance.nom_fichier.split('.')[-1].lower(), 
+                    'id': str(fichier_instance.id)
+                }
+                messages.success(request, "Fichier importé avec succès.")
+                return redirect(reverse('anonymize') + f'?step=2&fichier_id={fichier_instance.id}')
+            except Exception as e:
+                messages.error(request, f"Erreur lors de l'import : {str(e)}")
+                return redirect('anonymize')
+
+        # === ÉTAPE 2 : Configuration de l'anonymisation ===
         elif 'from_config' in request.POST:
             fichier_id = request.POST.get('fichier_id')
             if not fichier_id:
                 messages.error(request, "Aucun fichier sélectionné.")
-                url = reverse('anonymize') + '?step=2'
-                return redirect(url)
-            
-            # Récupérer les champs IPI sélectionnés et les méthodes
-            selected_ipi = request.POST.getlist('ipi_fields')
-            # Vérifier qu'au moins un champ IPI est sélectionné
-            if not selected_ipi:
-                messages.error(request, "Veuillez sélectionner au moins un champ IPI à anonymiser.")
-                url = reverse('anonymize') + f'?step=2&fichier_id={fichier_id}'
-                return redirect(url)
+                return redirect(reverse('anonymize') + '?step=2')
 
-            # Vérifier que des méthodes sont sélectionnées
-            methods = {field: request.POST.get(f'method_{field}', 'none') for field in selected_ipi}
-            if all(method == 'none' for method in methods.values()):
-                messages.error(request, "Veuillez sélectionner une méthode d'anonymisation pour au moins un champ.")
-                url = reverse('anonymize') + f'?step=2&fichier_id={fichier_id}'
-                return redirect(url)
+            selected_ipi = request.POST.getlist('ipi_fields')
+            if not selected_ipi:
+                messages.error(request, "Veuillez sélectionner au moins un champ à anonymiser.")
+                return redirect(reverse('anonymize') + f'?step=2&fichier_id={fichier_id}')
+
+            # CORRECTION : Utilisation de slugify pour récupérer les méthodes
+            methods = {field: request.POST.get(f'method_{slugify(field)}', 'none') for field in selected_ipi}
             
-            # Stocker les configurations dans la session
+            if all(method == 'none' for method in methods.values()):
+                messages.warning(request, "Aucune méthode d'anonymisation n'a été choisie. Les données ne seront pas modifiées.")
+
             request.session['selected_ipi'] = selected_ipi
             request.session['methods'] = methods
             
-            # Traiter le fichier CSV
             try:
-                fichier_instance = Fichier.objects.get(id=fichier_id, utilisateur=request.user)
-                file_extension = fichier_instance.nom_fichier.split('.')[-1].lower()
+                fichier_instance = get_object_or_404(Fichier, id=fichier_id, utilisateur=request.user)
+                fichier_instance.fichier.seek(0)
+                decoded_file = fichier_instance.fichier.read().decode('utf-8', errors='ignore')
+                csv_reader = csv.reader(io.StringIO(decoded_file))
+                headers = next(csv_reader, [])
+                original_rows = list(csv_reader)
+
+                if not headers or not original_rows:
+                    messages.error(request, "Le fichier CSV semble vide ou mal formaté.")
+                    return redirect(reverse('anonymize') + f'?step=2&fichier_id={fichier_id}')
+
+                anonymized_rows, info = anonymize_with_complete_preservation(headers, original_rows, selected_ipi, methods)
                 
-                if file_extension == 'csv':
-                    fichier_instance.fichier.seek(0)
-                    decoded_file = fichier_instance.fichier.read().decode('utf-8', errors='ignore')
-                    csv_reader = csv.reader(io.StringIO(decoded_file))
-                    headers = next(csv_reader, [])
-                    original = list(csv_reader)
-                    
-                    # Vérifier que le fichier n'est pas vide
-                    if not headers:
-                        messages.error(request, "Le fichier CSV semble vide ou mal formaté.")
-                        url = reverse('anonymize') + f'?step=2&fichier_id={fichier_id}'
-                        return redirect(url)
-                    
-                    # Anonymiser les données
-                    anonymized = anonymize_data(headers, original, selected_ipi, methods)
-                    
-                    # Calculer les métriques
-                    lignes_traitees = len(original)
-                    colonnes_anonymisees = len(selected_ipi)
-                    taux_anonymisation = (colonnes_anonymisees / len(headers)) * 100 if headers else 0
-                    score_securite = min(100, taux_anonymisation + calculate_sensitivity_score(selected_ipi))
-                    
-                    # Stocker toutes les données dans la session
-                    request.session['headers'] = headers
-                    request.session['original'] = original
-                    request.session['anonymized'] = anonymized
-                    request.session['lignes_traitees'] = lignes_traitees
-                    request.session['colonnes_anonymisees'] = colonnes_anonymisees
-                    request.session['taux_anonymisation'] = taux_anonymisation
-                    request.session['score_securite'] = score_securite
-                    
-                    # Debugging - vérifier que les données sont bien stockées
-                    print(f"DEBUG - Données stockées en session:")
-                    print(f"  - selected_ipi: {len(selected_ipi)} éléments")
-                    print(f"  - methods: {len(methods)} éléments")
-                    print(f"  - headers: {len(headers)} éléments")
-                    print(f"  - original: {len(original)} lignes")
-                    print(f"  - anonymized: {len(anonymized)} lignes")
-                    
-                    # Redirection vers l'étape 3
-                    url = reverse('anonymize') + f'?step=3&fichier_id={fichier_id}'
-                    return redirect(url)
-                else:
-                    messages.error(request, "Seuls les fichiers CSV sont supportés pour l'anonymisation pour le moment.")
-                    url = reverse('anonymize') + f'?step=2&fichier_id={fichier_id}'
-                    return redirect(url)
-                    
-            except Fichier.DoesNotExist:
-                messages.error(request, "Fichier introuvable.")
-                return redirect('anonymize')
+                # Stockage des données traitées en session pour les étapes suivantes
+                request.session.update({
+                    'headers': headers,
+                    'original': original_rows,
+                    'anonymized': anonymized_rows,
+                    'lignes_traitees': len(original_rows),
+                    'colonnes_anonymisees': info['total_anonymized_columns'],
+                    'taux_anonymisation': (info['total_anonymized_columns'] / len(headers)) * 100 if headers else 0,
+                    'score_securite': calculate_advanced_security_score(selected_ipi, methods),
+                })
+                
+                messages.success(request, "Configuration appliquée. Veuillez vérifier l'aperçu.")
+                return redirect(reverse('anonymize') + f'?step=3&fichier_id={fichier_id}')
+
             except Exception as e:
-                messages.error(request, f"Erreur lors du traitement du fichier: {str(e)}")
-                url = reverse('anonymize') + f'?step=2&fichier_id={fichier_id}'
-                return redirect(url)
-        # Dans votre fonction anonymize, remplacez la condition 'from_anonymize' par cette version corrigée :
+                messages.error(request, f"Erreur lors du traitement du fichier : {str(e)}")
+                return redirect(reverse('anonymize') + f'?step=2&fichier_id={fichier_id}')
+
+        # === ÉTAPE 3 : Clic sur "Lancer l'Anonymisation" -> Redirection vers l'étape 4 ===
         elif 'from_anonymize' in request.POST:
             fichier_id = request.POST.get('fichier_id')
             if not fichier_id:
-                messages.error(request, "Aucun fichier sélectionné.")
+                messages.error(request, "ID de fichier manquant. Veuillez recommencer.")
                 return redirect('anonymize')
             
+            messages.info(request, "Traitement terminé ! Voici les résultats et les options d'export.")
+            return redirect(reverse('anonymize') + f'?step=4&fichier_id={fichier_id}')
+
+        # === ÉTAPE 4 : Clic sur "Exporter & Sauvegarder" -> Sauvegarde finale ===
+        elif 'from_export' in request.POST:
+            fichier_id = request.POST.get('fichier_id')
+            if not fichier_id:
+                messages.error(request, "Aucun fichier sélectionné pour la sauvegarde.")
+                return redirect('anonymize')
+
             try:
-                fichier_instance = Fichier.objects.get(id=fichier_id, utilisateur=request.user)
-                
-                # Récupérer les données depuis la session
-                selected_ipi = request.session.get('selected_ipi', [])
-                methods = request.session.get('methods', {})
-                headers = request.session.get('headers', [])
-                original = request.session.get('original', [])
-                anonymized = request.session.get('anonymized', [])
-                
-                # Vérifications des données manquantes
-                missing_data = []
-                if not selected_ipi: missing_data.append("selected_ipi")
-                if not methods: missing_data.append("methods")
-                if not headers: missing_data.append("headers")
-                if not original: missing_data.append("original")
-                if not anonymized: missing_data.append("anonymized")
-                    
-                if missing_data:
-                    messages.error(request, f"Données d'anonymisation manquantes: {', '.join(missing_data)}. Veuillez recommencer.")
-                    # Nettoyer complètement la session
-                    session_keys_to_clear = ['uploaded_file', 'selected_ipi', 'methods', 'headers', 'original', 'anonymized', 'lignes_traitees', 'colonnes_anonymisees', 'taux_anonymisation', 'score_securite']
-                    for key in session_keys_to_clear:
-                        if key in request.session:
-                            del request.session[key]
+                # Récupérer toutes les données nécessaires depuis la session
+                session_data = {
+                    'selected_ipi': request.session.get('selected_ipi', []),
+                    'methods': request.session.get('methods', {}),
+                    'headers': request.session.get('headers', []),
+                    'original': request.session.get('original', []),
+                    'anonymized': request.session.get('anonymized', [])
+                }
+                if not all(session_data.values()):
+                    messages.error(request, "Votre session a expiré. Veuillez recommencer le processus.")
                     return redirect('anonymize')
+
+                fichier_instance = get_object_or_404(Fichier, id=fichier_id, utilisateur=request.user)
                 
-                # Créer le fichier anonymisé
-                anonymized_content = io.StringIO()
-                writer = csv.writer(anonymized_content)
-                
-                if headers:
-                    writer.writerow(headers)
-                
-                for row in anonymized:
-                    writer.writerow(row)
-                
-                # Sauvegarder le fichier anonymisé
-                anonymized_filename = f"anonymized_{fichier_instance.nom_fichier}"
-                anonymized_file_content = ContentFile(anonymized_content.getvalue().encode('utf-8'))
-                anonymized_file_path = default_storage.save(f'fichiers_anonymises/{anonymized_filename}', anonymized_file_content)
-                
-                # Mettre à jour le fichier
-                fichier_instance.statut = 'Anonymisé'
-                fichier_instance.fichier_anonymise = anonymized_file_path
+                # 1. Stocker les données anonymisées binaires dans le modèle Fichier
+                anonymization_info = {
+                    'anonymized_fields': session_data['selected_ipi'],
+                    'preserved_fields': [h for h in session_data['headers'] if h not in session_data['selected_ipi']],
+                    'methods_used': session_data['methods']
+                }
+                fichier_instance.store_donnees_completes(
+                    session_data['headers'], session_data['anonymized'], anonymization_info
+                )
+
+                # 2. Mettre à jour les métriques du fichier
+                fichier_instance.nombre_lignes = len(session_data['original'])
+                fichier_instance.nombre_colonnes = len(session_data['headers'])
+                fichier_instance.partage = request.POST.get('share_hub') == '1'
                 fichier_instance.save()
-                
-                # Créer l'historique avec les méthodes utilisées
-                methodes_str = ", ".join([f"{field}: {method}" for field, method in methods.items()])
+
+                # 3. Créer l'historique et les rapports associés
                 historique = Historique.objects.create(
                     fichier=fichier_instance,
                     utilisateur=request.user,
-                    partage=False,
-                    méthode_anonymisation=methodes_str,
+                    partage=fichier_instance.partage,
+                    méthode_anonymisation=", ".join([f"{f}: {m}" for f, m in session_data['methods'].items()]),
                     statut='Terminé'
                 )
-                
-                # Créer les métriques
-                lignes_traitees = len(original)
-                colonnes_anonymisees = len(selected_ipi)
-                taux_anonymisation = (colonnes_anonymisees / len(headers)) * 100 if headers else 0
-                score_securite = min(100, taux_anonymisation + calculate_sensitivity_score(selected_ipi))
-                
                 Métriques.objects.create(
                     historique=historique,
-                    lignes_traitees=lignes_traitees,
-                    colonnes_anonymisees=colonnes_anonymisees,
-                    taux_anonymisation=taux_anonymisation,
-                    score_securite=score_securite
+                    lignes_traitees=fichier_instance.nombre_lignes,
+                    colonnes_anonymisees=len(session_data['selected_ipi']),
+                    taux_anonymisation=(len(session_data['selected_ipi']) / fichier_instance.nombre_colonnes) * 100,
+                    score_securite=calculate_advanced_security_score(session_data['selected_ipi'], session_data['methods'])
                 )
-                
-                # Créer le rapport de conformité
                 RapportConformité.objects.create(
                     historique=historique,
-                    analyse_risques=f"Score de sensibilité: {calculate_sensitivity_score(selected_ipi)}%",
-                    recommandations="Fichier anonymisé selon les standards RGPD et CDP Sénégal",
+                    analyse_risques="Analyse des risques effectuée.",
+                    recommandations="Traitement conforme aux standards.",
                     conformite="Conforme RGPD/CDP"
                 )
-                
-                # NETTOYER COMPLÈTEMENT LA SESSION
-                session_keys_to_clear = [
-                    'uploaded_file', 'selected_ipi', 'methods', 'headers', 
-                    'original', 'anonymized', 'lignes_traitees', 'colonnes_anonymisees', 
-                    'taux_anonymisation', 'score_securite'
-                ]
-                for key in session_keys_to_clear:
-                    if key in request.session:
+
+                # 4. Nettoyer la session
+                for key in list(request.session.keys()):
+                    if key.startswith(('uploaded_file', 'selected_ipi', 'methods', 'headers', 'original', 'anonymized')):
                         del request.session[key]
                 
-                # Forcer la sauvegarde de la session
-                request.session.modified = True
-                
-                messages.success(request, f"Fichier '{fichier_instance.nom_fichier}' anonymisé avec succès!")
-                
-                # Rediriger vers l'étape 1 pour un nouveau cycle
-                return redirect('anonymize')
-                
-            except Fichier.DoesNotExist:
-                messages.error(request, "Fichier introuvable.")
-                return redirect('anonymize')
+                messages.success(request, f"Fichier '{fichier_instance.nom_fichier}' anonymisé et sauvegardé avec succès !")
+                return redirect(reverse('anonymize') + f'?step=5')
+
             except Exception as e:
-                messages.error(request, f"Erreur lors de la sauvegarde: {str(e)}")
+                messages.error(request, f"Erreur critique lors de la sauvegarde finale : {str(e)}")
                 return redirect('anonymize')
-        elif 'fichier_id' in request.POST and 'from_export' in request.POST:
-            fichier_id = request.POST.get('fichier_id')
-            format_export = request.POST.get('format')
-            share_hub = request.POST.get('share_hub', False)
-            
-            # Stocker les paramètres d'export
-            request.session['format_export'] = format_export
-            request.session['share_hub'] = share_hub
-            
-            # Logique d'export (à implémenter)
-            url = reverse('anonymize') + f'?step=4&fichier_id={fichier_id}'
-            return redirect(url)
 
-    # Récupérer les données depuis la session si elles existent
+    # --- Préparation du contexte pour le rendu du template ---
     if step >= 3:
-        headers = request.session.get('headers', [])
-        original = request.session.get('original', [])
-        anonymized = request.session.get('anonymized', [])
-        lignes_traitees = request.session.get('lignes_traitees', 0)
-        colonnes_anonymisees = request.session.get('colonnes_anonymisees', 0)
-        taux_anonymisation = request.session.get('taux_anonymisation', 0)
-        score_securite = request.session.get('score_securite', 0)
+        context_data.update({
+            'headers': request.session.get('headers', []),
+            'original': request.session.get('original', []),
+            'anonymized': request.session.get('anonymized', []),
+            'lignes_traitees': request.session.get('lignes_traitees', 0),
+            'colonnes_anonymisees': request.session.get('colonnes_anonymisees', 0),
+            'taux_anonymisation': request.session.get('taux_anonymisation', 0),
+            'score_securite': request.session.get('score_securite', 0),
+        })
 
-    # Contexte pour toutes les étapes
-    context = {
+    final_context = {
         'step': step,
-        'uploaded_file': uploaded_file,
         'fichiers': fichiers,
-        'methodes': methodes,
-        'ipi_fields': ipi_fields,
-        'sensitivity_score': sensitivity_score,
-        'lignes_traitees': lignes_traitees,
-        'colonnes_anonymisees': colonnes_anonymisees,
-        'taux_anonymisation': taux_anonymisation,
-        'score_securite': score_securite,
-        'analyse_risques': analyse_risques,
-        'conformite': conformite,
-        'recommandations': recommandations,
+        'methodes': ['Suppression', 'Pseudonymisation', 'Hachage'],
         'fichier_id': fichier_id,
-        'headers': headers,
-        'original': original,
-        'anonymized': anonymized,
+        **context_data
     }
-    return render(request, 'medicanon/anonymize.html', context)
+    
+    return render(request, 'medicanon/anonymize.html', final_context)
+
+def download_public_file(request, fichier_id ):
+    """
+    Permet à n'importe qui de télécharger un fichier anonymisé et partagé.
+    Lit les données directement depuis la base de données.
+    """
+    try:
+        # Récupérer le fichier. On ne filtre pas par utilisateur car c'est public.
+        fichier = get_object_or_404(Fichier, id=fichier_id)
+
+        # Vérifier les conditions de sécurité
+        if fichier.statut != 'Anonymisé' or not fichier.partage:
+            messages.error(request, "Ce fichier n'est pas disponible au téléchargement public.")
+            # Rediriger vers le hub ou une autre page appropriée
+            return redirect('public_hub') 
+
+        # Récupérer les données depuis le champ binaire
+        all_data = fichier.get_toutes_les_donnees()
+
+        if not all_data or 'headers' not in all_data or 'rows' not in all_data:
+            messages.error(request, "Les données anonymisées pour ce fichier sont corrompues ou introuvables.")
+            return redirect('public_hub')
+
+        # Générer le contenu du fichier CSV en mémoire
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Écrire les en-têtes
+        writer.writerow(all_data['headers'])
+        
+        # Écrire les lignes de données
+        writer.writerows(all_data['rows'])
+        
+        csv_content = output.getvalue()
+        
+        # Créer la réponse HTTP pour le téléchargement
+        response = HttpResponse(csv_content, content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="anonymized_{fichier.nom_fichier}"'
+        
+        return response
+
+    except Http404:
+        messages.error(request, "Le fichier demandé n'existe pas.")
+        return redirect('public_hub')
+    except Exception as e:
+        messages.error(request, f"Une erreur est survenue lors de la préparation du téléchargement : {str(e)}")
+        return redirect('public_hub')
+
 
 
 @login_required
@@ -945,78 +1174,6 @@ def compliance_report(request):
 def custom_logout(request):
     logout(request)
     return redirect('accueil')
-
-@login_required
-def import_fichier(request):
-    fichiers = Fichier.objects.all().order_by('-date_import')
-    search_query = request.GET.get('search', '').strip()
-    statut_filter = request.GET.get('statut', '').strip()
-    if search_query:
-        fichiers = fichiers.filter(nom_fichier__icontains=search_query)
-    if statut_filter:
-        fichiers = fichiers.filter(statut=statut_filter)
-    if request.method == 'POST' and request.FILES.get('fichier'):
-        uploaded_file = request.FILES['fichier']
-        fichier_instance = Fichier.objects.create(
-            fichier=uploaded_file,
-            nom_fichier=uploaded_file.name,
-            statut='Importé',
-            utilisateur=request.user
-        )
-        return redirect('import_fichier')
-    paginator = Paginator(fichiers, 5)
-    page_number = request.GET.get('page')
-    fichiers_page = paginator.get_page(page_number)
-    if request.headers.get('HX-Request') == 'true':
-        return render(request, 'medicanon/_fichiers_table.html', {'fichiers': fichiers_page})
-    return render(request, 'medicanon/import.html', {
-        'fichiers': fichiers_page,
-        'search_query': search_query,
-        'statut_filter': statut_filter
-    })
-
-@login_required
-def delete_fichier(request, pk):
-    fichier = get_object_or_404(Fichier, pk=pk)
-    fichier.delete()
-    fichiers = Fichier.objects.all().order_by('-date_import')
-    paginator = Paginator(fichiers, 5)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    return render(request, 'medicanon/_fichiers_table.html', {'fichiers': page_obj})
-
-
-@login_required
-def telecharger_fichier(request, fichier_id):  
-    fichier = get_object_or_404(Fichier, id=fichier_id, utilisateur=request.user)
-    
-    # Vérifier si le fichier anonymisé existe
-    if fichier.fichier_anonymise and fichier.statut == 'Anonymisé':
-        return FileResponse(
-            fichier.fichier_anonymise.open('rb'), 
-            as_attachment=True, 
-            filename=f"anonymized_{fichier.nom_fichier}"
-        )
-    
-    # Fallback : générer le CSV depuis la session (si encore disponible)
-    anonymized = request.session.get('anonymized', [])
-    headers = request.session.get('headers', [])
-    
-    if not anonymized:
-        messages.error(request, "Fichier anonymisé non disponible. Veuillez relancer l'anonymisation.")
-        return redirect('anonymize')
-    
-    # Générer le CSV à la volée
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename=anonymized_{fichier.nom_fichier}'
-    writer = csv.writer(response)
-    
-    if headers:
-        writer.writerow(headers)
-    for row in anonymized:
-        writer.writerow(row)
-    
-    return response
 
 @login_required
 def export_fichiers_csv(request):
@@ -1085,10 +1242,6 @@ def file_preview_api(request, fichier_id):
         # Générer l'aperçu selon le type
         if file_extension == 'csv':
             preview_data = generate_csv_preview(fichier)
-        elif file_extension == 'pdf':
-            preview_data = generate_pdf_preview(fichier)
-        elif file_extension in ['docx', 'doc']:
-            preview_data = generate_docx_preview(fichier)
         else:
             preview_data = {'type': 'unsupported', 'message': 'Type de fichier non supporté pour l\'aperçu'}
         
@@ -1144,76 +1297,6 @@ def generate_csv_preview(fichier):
         return {
             'type': 'error',
             'message': f'Erreur lors de la lecture du CSV: {str(e)}'
-        }
-
-def generate_pdf_preview(fichier):
-    """Génère un aperçu pour les fichiers PDF"""
-    try:
-        file_to_read = fichier.fichier_anonymise if fichier.fichier_anonymise else fichier.fichier
-        file_to_read.seek(0)
-        
-        # Utiliser pdfplumber pour extraire des informations
-        with pdfplumber.open(file_to_read) as pdf:
-            num_pages = len(pdf.pages)
-            
-            # Extraire le texte de la première page pour aperçu
-            first_page_text = ""
-            if num_pages > 0:
-                first_page_text = pdf.pages[0].extract_text() or "Contenu non extractible"
-                # Limiter à 500 caractères pour l'aperçu
-                first_page_text = first_page_text[:500] + ("..." if len(first_page_text) > 500 else "")
-        
-        file_to_read.seek(0)
-        
-        return {
-            'type': 'pdf',
-            'pages': num_pages,
-            'first_page_preview': first_page_text,
-            'message': f'Document PDF de {num_pages} page(s) - Données anonymisées'
-        }
-        
-    except Exception as e:
-        return {
-            'type': 'error',
-            'message': f'Erreur lors de la lecture du PDF: {str(e)}'
-        }
-
-def generate_docx_preview(fichier):
-    """Génère un aperçu pour les fichiers DOCX"""
-    try:
-        file_to_read = fichier.fichier_anonymise if fichier.fichier_anonymise else fichier.fichier
-        file_to_read.seek(0)
-        
-        # Lire le document Word
-        doc = Document(io.BytesIO(file_to_read.read()))
-        
-        # Extraire les premiers paragraphes
-        paragraphs = []
-        total_paragraphs = len(doc.paragraphs)
-        
-        for i, para in enumerate(doc.paragraphs):
-            if i >= 3:  # Limiter à 3 paragraphes
-                break
-            if para.text.strip():  # Ignorer les paragraphes vides
-                paragraphs.append(para.text.strip())
-        
-        # Compter les tables
-        num_tables = len(doc.tables)
-        
-        file_to_read.seek(0)
-        
-        return {
-            'type': 'docx',
-            'paragraphs': paragraphs,
-            'total_paragraphs': total_paragraphs,
-            'tables': num_tables,
-            'message': f'Document Word avec {total_paragraphs} paragraphe(s) et {num_tables} table(s) - Données anonymisées'
-        }
-        
-    except Exception as e:
-        return {
-            'type': 'error',
-            'message': f'Erreur lors de la lecture du document: {str(e)}'
         }
 
 def get_file_size_display(fichier):

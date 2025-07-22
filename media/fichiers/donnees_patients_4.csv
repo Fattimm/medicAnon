@@ -1,0 +1,6 @@
+nom,prenom,date_naissance,adresse,email,telephone,sexe,groupe_sanguin,diagnostic
+Gaye,Pape,1980-01-25,"Dakar, Sicap",pape.gaye@email.com,+221 77 111 2222,M,A+,Asthme
+Seck,Aminata,1998-06-30,"Diourbel, Rue 8",aminata.seck@email.com,+221 78 333 4444,F,B-,Allergie
+Thiam,Ibrahima,1975-12-12,"Kolda, Avenue 3",ibrahima.thiam@email.com,+221 76 555 6666,M,AB+,Hypertension
+Mbengue,Fatou,1993-08-09,"Touba, Quartier Est",fatou.mbengue@email.com,+221 70 777 8888,F,O+,Malaria
+Diallo,Cheikh,1987-03-15,"Sédhiou, Rue Principale",cheikh.diallo@email.com,+221 77 999 0000,M,A-,Diabète

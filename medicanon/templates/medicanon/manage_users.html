@@ -1,39 +1,431 @@
 {% extends 'medicanon/base.html' %}
-{% block title %}Gérer Utilisateurs{% endblock %}
+{% block title %}Administration - Gestion des Utilisateurs{% endblock %}
+
 {% block content %}
-    <h1 class="text-2xl text-medic-blue">Gérer les Utilisateurs</h1>
-    <form method="post" class="mt-4">
-        {% csrf_token %}
-        <h2 class="text-xl">Créer un utilisateur</h2>
-        <input type="text" name="username" placeholder="Nom d'utilisateur" class="p-2 border rounded mb-2" required>
-        <input type="email" name="email" placeholder="Email" class="p-2 border rounded mb-2" required>
-        <input type="password" name="password" placeholder="Mot de passe" class="p-2 border rounded mb-2" required>
-        <input type="text" name="first_name" placeholder="Prénom" class="p-2 border rounded mb-2" required>
-        <input type="text" name="last_name" placeholder="Nom" class="p-2 border rounded mb-2" required>
-        <select name="role" class="p-2 border rounded mb-2">
-            <option value="Visiteur">Visiteur</option>
-            <option value="Agent">Agent</option>
-            <option value="Administrateur">Administrateur</option>
-        </select>
-        <button type="submit" name="create_user" class="bg-medic-lime text-white p-2 rounded">Créer</button>
-    </form>
-    <h2 class="text-xl mt-4">Liste des utilisateurs</h2>
-    <ul class="mt-2">
-        {% for user in users %}
-            <li class="p-2 border-b">
-                {{ user.username }} ({{ user.first_name }} {{ user.last_name }}) - Rôle: {{ user.role }}
-                <form method="post" class="inline">
-                    {% csrf_token %}
-                    <input type="hidden" name="user_id" value="{{ user.id }}">
-                    <select name="new_role" class="p-1 border rounded">
-                        <option value="Visiteur" {% if user.role == 'Visiteur' %}selected{% endif %}>Visiteur</option>
-                        <option value="Agent" {% if user.role == 'Agent' %}selected{% endif %}>Agent</option>
-                        <option value="Administrateur" {% if user.role == 'Administrateur' %}selected{% endif %}>Administrateur</option>
+<!-- Header gradient - BLEU -->
+<div class="bg-gradient-medical py-8">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-white mb-2">
+                    <svg class="w-8 h-8 inline-block mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 515 0z"></path>
+                    </svg>
+                    Gestion des Utilisateurs
+                </h1>
+                <p class="text-white/90">Administration des comptes et des rôles</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="text-white text-right">
+                    <p class="text-sm opacity-75">Total utilisateurs</p>
+                    <p class="text-2xl font-bold">{{ users|length }}</p>
+                </div>
+                <a href="{% url 'register' %}" class="inline-flex items-center px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Nouvel utilisateur
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="py-8 bg-gradient-soft min-h-screen">
+    <div class="max-w-7xl mx-auto px-4">
+        
+        <!-- Messages d'alerte -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="mb-6 p-4 rounded-lg border-l-4 {% if message.tags == 'success' %}bg-green-50 border-green-400 text-green-700{% elif message.tags == 'error' %}bg-red-50 border-red-400 text-red-700{% elif message.tags == 'warning' %}bg-yellow-50 border-yellow-400 text-yellow-700{% else %}bg-blue-50 border-blue-400 text-blue-700{% endif %}">
+                    <div class="flex items-center">
+                        {% if message.tags == 'success' %}
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                        {% elif message.tags == 'error' %}
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        {% elif message.tags == 'warning' %}
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                        {% endif %}
+                        {{ message }}
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Statistiques rapides -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg p-6 shadow-sm border border-neutral-200">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 515 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-neutral-600">Total</p>
+                        <p class="text-2xl font-semibold text-neutral-900">{{ total_users }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg p-6 shadow-sm border border-neutral-200">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-neutral-600">Administrateurs</p>
+                        <p class="text-2xl font-semibold text-neutral-900">{{ admin_count }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg p-6 shadow-sm border border-neutral-200">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-neutral-600">Agents</p>
+                        <p class="text-2xl font-semibold text-neutral-900">{{ agent_count }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg p-6 shadow-sm border border-neutral-200">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 616 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-neutral-600">Visiteurs</p>
+                        <p class="text-2xl font-semibold text-neutral-900">{{ visitor_count }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liste des utilisateurs -->
+        <div class="bg-white rounded-lg shadow-sm border border-neutral-200">
+            <!-- En-tête avec filtres -->
+            <div class="p-6 border-b border-neutral-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-neutral-900">Liste des utilisateurs</h2>
+                </div>
+                
+                <!-- Filtres -->
+                <div class="flex flex-wrap gap-3">
+                    <div class="flex-1 min-w-48">
+                        <input type="text" id="search-users" 
+                               class="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                               placeholder="Rechercher un utilisateur...">
+                    </div>
+                    <select id="filter-role" class="px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Tous les rôles</option>
+                        <option value="Visiteur">Visiteurs</option>
+                        <option value="Agent">Agents</option>
+                        <option value="Administrateur">Administrateurs</option>
                     </select>
-                    <button type="submit" name="update_role" class="bg-medic-blue text-white p-1 rounded ml-2">Mettre à jour</button>
-                    <button type="submit" name="delete_user" class="bg-medic-red text-white p-1 rounded ml-2" onclick="return confirm('Confirmer la suppression ?')">Supprimer</button>
+                </div>
+            </div>
+
+            <!-- Tableau des utilisateurs -->
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-neutral-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                                Utilisateur
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                                Rôle
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                                Date d'inscription
+                            </th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-neutral-200" id="users-table">
+                        {% for user in users %}
+                        <tr class="user-row hover:bg-neutral-50 transition-colors" 
+                            data-username="{{ user.username|lower }}" 
+                            data-email="{{ user.email|lower }}" 
+                            data-role="{{ user.role }}">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold mr-3">
+                                        {{ user.first_name|first|upper }}{{ user.last_name|first|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="text-sm font-medium text-neutral-900">
+                                            {{ user.first_name }} {{ user.last_name }}
+                                        </div>
+                                        <div class="text-sm text-neutral-500">
+                                            @{{ user.username }} • {{ user.email }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                    {% if user.role == 'Administrateur' %}bg-red-100 text-red-800
+                                    {% elif user.role == 'Agent' %}bg-blue-100 text-blue-800
+                                    {% else %}bg-green-100 text-green-800{% endif %}">
+                                    {% if user.role == 'Administrateur' %}
+                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                        </svg>
+                                    {% elif user.role == 'Agent' %}
+                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                        </svg>
+                                    {% else %}
+                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 616 0z"></path>
+                                        </svg>
+                                    {% endif %}
+                                    {{ user.role }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-neutral-500">
+                                {{ user.date_joined|date:"d/m/Y à H:i" }}
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <div class="flex items-center justify-end space-x-2">
+                                    <!-- Bouton modifier rôle -->
+                                    <button type="button" 
+                                            class="inline-flex items-center px-3 py-1 border border-neutral-300 rounded-md text-xs font-medium text-neutral-700 bg-white hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            onclick="openEditModal({{ user.id }}, '{{ user.username }}', '{{ user.role }}')">
+                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                        </svg>
+                                        Modifier
+                                    </button>
+                                    
+                                    <!-- Bouton supprimer -->
+                                    {% if user.id != request.user.id %}
+                                    <button type="button" 
+                                            class="inline-flex items-center px-3 py-1 border border-red-300 rounded-md text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                                            onclick="confirmDelete({{ user.id }}, '{{ user.username }}')">
+                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                        Supprimer
+                                    </button>
+                                    {% else %}
+                                    <span class="text-xs text-neutral-400 italic">Votre compte</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-12 text-center">
+                                <div class="text-neutral-400">
+                                    <svg class="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 515 0z"></path>
+                                    </svg>
+                                    <p class="text-sm">Aucun utilisateur trouvé</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de modification de rôle -->
+<div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-neutral-900">Modifier le rôle</h3>
+                    <button type="button" onclick="closeEditModal()" class="text-neutral-400 hover:text-neutral-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form method="post" id="editForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="user_id" id="editUserId">
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-neutral-700 mb-2">
+                            Utilisateur : <span id="editUsername" class="font-semibold text-blue-600"></span>
+                        </label>
+                        <select name="new_role" id="editRole" class="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="Visiteur">Visiteur</option>
+                            <option value="Agent">Agent</option>
+                            <option value="Administrateur">Administrateur</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeEditModal()" class="px-4 py-2 border border-neutral-300 rounded-md text-neutral-700 hover:bg-neutral-50">
+                            Annuler
+                        </button>
+                        <button type="submit" name="update_role" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                            Mettre à jour
+                        </button>
+                    </div>
                 </form>
-            </li>
-        {% endfor %}
-    </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmation de suppression -->
+<div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-neutral-900">Confirmer la suppression</h3>
+                </div>
+                
+                <p class="text-neutral-600 mb-6">
+                    Êtes-vous sûr de vouloir supprimer l'utilisateur <span id="deleteUsername" class="font-semibold"></span> ? 
+                    Cette action est irréversible.
+                </p>
+                
+                <form method="post" id="deleteForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="user_id" id="deleteUserId">
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="closeDeleteModal()" class="px-4 py-2 border border-neutral-300 rounded-md text-neutral-700 hover:bg-neutral-50">
+                            Annuler
+                        </button>
+                        <button type="submit" name="delete_user" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+                            Supprimer définitivement
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* THÈME BLEU MAINTENU */
+.bg-gradient-blue {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.bg-gradient-soft {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.user-row:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Search functionality
+    const searchInput = document.getElementById('search-users');
+    const roleFilter = document.getElementById('filter-role');
+    const userRows = document.querySelectorAll('.user-row');
+
+    function filterUsers() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const selectedRole = roleFilter.value;
+
+        userRows.forEach(row => {
+            const username = row.dataset.username;
+            const email = row.dataset.email;
+            const role = row.dataset.role;
+            
+            const matchesSearch = username.includes(searchTerm) || email.includes(searchTerm);
+            const matchesRole = !selectedRole || role === selectedRole;
+            
+            if (matchesSearch && matchesRole) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    searchInput.addEventListener('input', filterUsers);
+    roleFilter.addEventListener('change', filterUsers);
+});
+
+// Modal functions
+function openEditModal(userId, username, currentRole) {
+    document.getElementById('editUserId').value = userId;
+    document.getElementById('editUsername').textContent = username;
+    document.getElementById('editRole').value = currentRole;
+    document.getElementById('editModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+function confirmDelete(userId, username) {
+    document.getElementById('deleteUserId').value = userId;
+    document.getElementById('deleteUsername').textContent = username;
+    document.getElementById('deleteModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+    document.body.style.overflow = 'auto';
+}
+
+// Close modals when clicking outside
+document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeEditModal();
+    }
+});
+
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDeleteModal();
+    }
+});
+
+// Escape key to close modals
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeEditModal();
+        closeDeleteModal();
+    }
+});
+</script>
+
 {% endblock %}
