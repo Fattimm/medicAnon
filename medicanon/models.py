@@ -142,7 +142,6 @@ class Fichier(models.Model):
             return False
 
         
-
 class Historique(models.Model):
     fichier = models.ForeignKey(Fichier, on_delete=models.CASCADE)
     date_traitement = models.DateTimeField(auto_now_add=True)
@@ -159,6 +158,7 @@ class Historique(models.Model):
 
     def __str__(self):
         return f"Historique {self.fichier.nom_fichier} - {self.date_traitement}"
+
 
 class Métriques(models.Model):
     historique = models.ForeignKey(Historique, on_delete=models.CASCADE)

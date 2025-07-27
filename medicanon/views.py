@@ -5,7 +5,7 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.contrib import messages
 from django.db import transaction
@@ -25,6 +25,7 @@ from django.utils import timezone
 import pickle
 import gzip
 from django.utils.text import slugify
+import unicodedata
 
 
 
@@ -85,6 +86,32 @@ MEDICAL_PATTERNS = {
     # Spécificités sénégalaises
     'wolof_names': r'\b(anta|modou|fatou|pape|cheikh|aminata|moussa|binta)\b',
     'senegal_locations': r'\b(dakar|thies|kaolack|saint[\s_-]*louis|ziguinchor|diourbel|tambacounda|kolda|matam|sedhiou|kaffrine|kedougou|fatick|louga)\b',
+    'age': r'\b(a|â|à|ä|á|ã|å|æ)g(e|é|è|ê|ë)?\b',
+    'date_consultation': r'\b(date[\s_-]*consultation|consultation[\s_-]*date)\b',
+    'prescription': r'\b(prescription|ordonnance|treatment|traitement|medicament|medication)\b',
+    'commune': r'\b(commune|quartier|ville|localite|localité)\b',
+    'hopital': r'\b(hopital|hôpital|centre[\s_-]*sante|clinique|poste[\s_-]*sante)\b',
+    'numero_secu': r'\b(numero[\s_-]*secu|nir|num[\s_-]*secu|securite[\s_-]*sociale|nss)\b',
+    'lieu_naissance': r'\b(lieu[\s_-]*naissance|ville[\s_-]*naissance|pays[\s_-]*naissance)\b',
+    'nationalite': r'\b(nationalite|nationalité|pays[\s_-]*origine)\b',
+    'code_postal': r'\b(code[\s_-]*postal|cp|zip[\s_-]*code)\b',
+    'pays': r'\b(pays|country|nation)\b',
+    'contact_urgence': r'\b(contact[\s_-]*urgence|proche|urgence|famille)\b',
+    'situation_familiale': r'\b(situation[\s_-]*familiale|statut[\s_-]*marital|marital|familial)\b',
+    'date_hospitalisation': r'\b(date[\s_-]*hospitalisation|date[\s_-]*entree|entree|admission)\b',
+    'date_sortie': r'\b(date[\s_-]*sortie|sortie|discharge)\b',
+    'service': r'\b(service|departement|specialite|spécialité|unite|unité)\b',
+    'antecedents': r'\b(antecedents|antécédents|historique[\s_-]*medical|medical[\s_-]*history)\b',
+    'allergies': r'\b(allergies|allergie|allergique|intolerance)\b',
+    'resultats': r'\b(resultats|résultats|analyses|examens|tests|resultat|résultat)\b',
+    'numero_chambre': r'\b(numero[\s_-]*chambre|chambre|lit|room|bed)\b',
+    'tension': r'\b(tension|pression[\s_-]*arterielle|blood[\s_-]*pressure|tension[\s_-]*arterielle)\b',
+    'temperature': r'\b(temperature|température|fievre|fever)\b',
+    'profession': r'\b(profession|metier|métier|job|travail|occupation)\b',
+    'employeur': r'\b(employeur|entreprise|company|societe|société)\b',
+    'nombre_enfants': r'\b(nombre[\s_-]*enfants|enfants|children|nb[\s_-]*enfants)\b',
+    'mutuelle': r'\b(mutuelle|assurance|insurance|couverture)\b',
+    'cout': r'\b(cout|coût|prix|cost|facture|bill|tarif)\b',
 }
 
 ENHANCED_SENSITIVITY_WEIGHTS = {
@@ -124,6 +151,32 @@ ENHANCED_SENSITIVITY_WEIGHTS = {
     # === DONNÉES GÉOGRAPHIQUES/CULTURELLES ===
     'wolof_names': 35,
     'senegal_locations': 15,
+    'age': 20,
+    'date_consultation': 20,
+    'prescription': 40,
+    'commune': 15,
+    'hopital': 20,
+    'numero_secu': 45,
+    'lieu_naissance': 25,
+    'nationalite': 20,
+    'code_postal': 20,
+    'pays': 15,
+    'contact_urgence': 30,
+    'situation_familiale': 20,
+    'date_hospitalisation': 25,
+    'date_sortie': 25,
+    'service': 20,
+    'antecedents': 40,
+    'allergies': 35,
+    'resultats': 45,
+    'numero_chambre': 15,
+    'tension': 30,
+    'temperature': 25,
+    'profession': 20,
+    'employeur': 20,
+    'nombre_enfants': 20,
+    'mutuelle': 25,
+    'cout': 20,
 }
 
 
@@ -146,13 +199,13 @@ def detect_ipi_fields_csv_only(fichier):
         # === ÉTAPE 1: DÉTECTION PAR PATTERNS ===
         detected_by_pattern = []
         for header in headers:
-            header_lower = header.lower().strip()
-            
+            # Normalisation : minuscules + suppression des accents
+            header_norm = unicodedata.normalize('NFKD', header).encode('ASCII', 'ignore').decode('utf-8').lower().strip()
             for pattern_name, pattern in MEDICAL_PATTERNS.items():
-                if re.search(pattern, header_lower, re.IGNORECASE):
+                if re.search(pattern, header_norm, re.IGNORECASE):
                     if header not in detected_by_pattern:
                         detected_by_pattern.append(header)
-                        print(f"✅ '{header}' détecté par pattern '{pattern_name}'")
+                        print(f"✅ '{header}' détecté par pattern '{pattern_name}' (normalisé: '{header_norm}')")
                     break
         
         # === ÉTAPE 2: VALIDATION PAR CONTENU ===
@@ -239,8 +292,13 @@ def is_sensitive_data_enhanced(value, field_name=""):
     patterns = [
         r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$',  # Email
         r'^(\+221\s?)?\d{2}[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}$',  # Téléphone
-        r'^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$',  # Date
-        r'\b(rue|avenue|boulevard|quartier|villa|lot)\b',  # Adresse
+        # Formats de date élargis : 01/01/1990, 1990-01-01, 1-1-90, 1990/1/1, 1 janvier 1990, 1990 janvier 1
+        r'^(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})$',
+        r'^(\d{4}[/-]\d{1,2}[/-]\d{1,2})$',
+        r'^(\d{1,2} [a-zéûîôàèùâêîôûç]+ \d{2,4})$',
+        r'^(\d{4} [a-zéûîôàèùâêîôûç]+ \d{1,2})$',
+        r'^(\d{1,2} [a-zéûîôàèùâêîôûç]+)$',
+        r'^(\d{4})$',  # Année seule (rare mais possible)
     ]
     
     for pattern in patterns:
@@ -889,6 +947,24 @@ def anonymize(request):
                 del request.session['uploaded_file']
             return redirect('anonymize')
 
+    # --- Nettoyage si retour à l'étape 1 ou demande de changement de fichier ---
+    if step == 1:
+        # Supprimer le fichier importé non anonymisé si présent
+        uploaded_file = request.session.get('uploaded_file')
+        if uploaded_file and uploaded_file.get('id'):
+            try:
+                fichier_to_delete = Fichier.objects.filter(id=uploaded_file['id'], utilisateur=request.user, statut='Importé').first()
+                if fichier_to_delete:
+                    if fichier_to_delete.fichier:
+                        fichier_to_delete.fichier.delete(save=False)
+                    fichier_to_delete.delete()
+            except Exception as e:
+                print(f"Erreur suppression fichier non anonymisé: {e}")
+        # Nettoyer la session
+        for key in list(request.session.keys()):
+            if key.startswith(('uploaded_file', 'selected_ipi', 'methods', 'headers', 'original', 'anonymized')):
+                del request.session[key]
+
     # --- Gestion des requêtes POST pour chaque étape ---
     if request.method == 'POST':
         
@@ -1013,13 +1089,18 @@ def anonymize(request):
                     session_data['headers'], session_data['anonymized'], anonymization_info
                 )
 
-                # 2. Mettre à jour les métriques du fichier
+                # 2. Supprimer le fichier physique original après anonymisation
+                if fichier_instance.fichier:
+                    fichier_instance.fichier.delete(save=False)
+                    fichier_instance.fichier = None
+
+                # 3. Mettre à jour les métriques du fichier
                 fichier_instance.nombre_lignes = len(session_data['original'])
                 fichier_instance.nombre_colonnes = len(session_data['headers'])
                 fichier_instance.partage = request.POST.get('share_hub') == '1'
                 fichier_instance.save()
 
-                # 3. Créer l'historique et les rapports associés
+                # 4. Créer l'historique et les rapports associés
                 historique = Historique.objects.create(
                     fichier=fichier_instance,
                     utilisateur=request.user,
@@ -1041,7 +1122,7 @@ def anonymize(request):
                     conformite="Conforme RGPD/CDP"
                 )
 
-                # 4. Nettoyer la session
+                # 5. Nettoyer la session
                 for key in list(request.session.keys()):
                     if key.startswith(('uploaded_file', 'selected_ipi', 'methods', 'headers', 'original', 'anonymized')):
                         del request.session[key]
@@ -1070,6 +1151,7 @@ def anonymize(request):
         'fichiers': fichiers,
         'methodes': ['Suppression', 'Pseudonymisation', 'Hachage'],
         'fichier_id': fichier_id,
+        'anonymized_count': fichiers.filter(statut='Anonymisé').count() if fichiers else 0,
         **context_data
     }
     
@@ -1160,16 +1242,70 @@ def download_anonymized(request, fichier_id):
     return response
 
 @login_required
+def download_hybrid(request, fichier_id):
+    """
+    Téléchargement hybride : depuis la base si exporté, sinon depuis la session
+    """
+    try:
+        fichier = get_object_or_404(Fichier, id=fichier_id, utilisateur=request.user)
+        
+        # Vérifier si le fichier est déjà exporté/sauvegardé
+        if fichier.statut == 'Anonymisé' and fichier.donnees_completes_binaire:
+            # Fichier déjà exporté -> utiliser la vue publique
+            return download_public_file(request, fichier_id)
+        else:
+            # Fichier pas encore exporté -> télécharger depuis la session
+            session_data = {
+                'headers': request.session.get('headers', []),
+                'original': request.session.get('original', []),
+                'anonymized': request.session.get('anonymized', [])
+            }
+            
+            if not all(session_data.values()):
+                messages.error(request, "Aucune donnée anonymisée disponible en session. Veuillez d'abord exporter le fichier.")
+                return redirect('anonymize')
+            
+            # Générer le CSV depuis la session
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Écrire les en-têtes
+            writer.writerow(session_data['headers'])
+            
+            # Écrire les lignes de données anonymisées
+            writer.writerows(session_data['anonymized'])
+            
+            csv_content = output.getvalue()
+            
+            # Créer la réponse HTTP pour le téléchargement
+            response = HttpResponse(csv_content, content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = f'attachment; filename="anonymized_{fichier.nom_fichier}"'
+            
+            messages.info(request, "Téléchargement depuis les données en session. Pour un accès permanent, exportez d'abord le fichier.")
+            return response
+            
+    except Exception as e:
+        messages.error(request, f"Erreur lors du téléchargement : {str(e)}")
+        return redirect('anonymize')
+
+@login_required
 def metrics(request):
-    historiques = Historique.objects.filter(utilisateur=request.user)
-    metriques = Métriques.objects.filter(historique__in=historiques)
+    if request.user.is_superuser or request.user.is_staff:
+        metriques = Métriques.objects.all()
+    else:
+        historiques = Historique.objects.filter(utilisateur=request.user)
+        metriques = Métriques.objects.filter(historique__in=historiques)
     return render(request, 'medicanon/metrics.html', {'metriques': metriques})
 
 @login_required
 def compliance_report(request):
-    historiques = Historique.objects.filter(utilisateur=request.user)
-    rapports = RapportConformité.objects.filter(historique__in=historiques)
+    if request.user.is_superuser or request.user.is_staff:
+        rapports = RapportConformité.objects.all()
+    else:
+        historiques = Historique.objects.filter(utilisateur=request.user)
+        rapports = RapportConformité.objects.filter(historique__in=historiques)
     return render(request, 'medicanon/compliance_report.html', {'rapports': rapports})
+
 
 def custom_logout(request):
     logout(request)
@@ -1344,4 +1480,225 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
+
+@login_required
+def preview_file(request, fichier_id):
+    """
+    Aperçu du contenu d'un fichier anonymisé (pour l'interface)
+    """
+    try:
+        fichier = get_object_or_404(Fichier, id=fichier_id, utilisateur=request.user)
+        
+        print(f"DEBUG: Fichier trouvé - ID: {fichier.id}, Statut: {fichier.statut}, Nom: {fichier.nom_fichier}")
+        
+        if fichier.statut != 'Anonymisé':
+            return JsonResponse({
+                'success': False,
+                'error': f'Le fichier doit être anonymisé pour être prévisualisé (statut actuel: {fichier.statut})'
+            })
+        
+        # Récupérer les données du fichier
+        headers = []
+        rows = []
+        anonymization_info = {}
+        
+        print(f"DEBUG: Vérification des données binaires - Présentes: {bool(fichier.donnees_completes_binaire)}")
+        
+        if fichier.donnees_completes_binaire:
+            # Fichier exporté - lire depuis la base
+            import pickle
+            import gzip
+            import io
+            
+            try:
+                # Essayer de lire comme pickle normal
+                data = pickle.loads(fichier.donnees_completes_binaire)
+                print("DEBUG: Données lues avec pickle normal")
+            except Exception as e1:
+                print(f"DEBUG: Erreur pickle normal: {e1}")
+                try:
+                    # Essayer de lire comme pickle compressé avec gzip
+                    with gzip.open(io.BytesIO(fichier.donnees_completes_binaire), 'rb') as f:
+                        data = pickle.load(f)
+                    print("DEBUG: Données lues avec pickle + gzip")
+                except Exception as e2:
+                    print(f"DEBUG: Erreur pickle + gzip: {e2}")
+                    try:
+                        # Essayer de décompresser d'abord puis pickle
+                        decompressed = gzip.decompress(fichier.donnees_completes_binaire)
+                        data = pickle.loads(decompressed)
+                        print("DEBUG: Données lues avec décompression + pickle")
+                    except Exception as e3:
+                        print(f"DEBUG: Erreur décompression + pickle: {e3}")
+                        # Si rien ne marche, essayer de lire comme JSON ou autre format
+                        try:
+                            import json
+                            # Essayer de décoder comme JSON
+                            data_str = fichier.donnees_completes_binaire.decode('utf-8')
+                            data = json.loads(data_str)
+                            print("DEBUG: Données lues avec JSON")
+                        except Exception as e4:
+                            print(f"DEBUG: Erreur JSON: {e4}")
+                            return JsonResponse({
+                                'success': False,
+                                'error': f'Format de données non reconnu. Erreurs: pickle={e1}, gzip={e2}, decompress={e3}, json={e4}'
+                            })
+                
+            headers = data.get('headers', [])
+            rows = data.get('rows', [])  # Changé de 'anonymized' à 'rows'
+            anonymization_info = data.get('anonymization_info', {})
+            
+            print(f"DEBUG: Données extraites - Headers: {len(headers)}, Rows: {len(rows)}")
+            print(f"DEBUG: Clés disponibles dans data: {list(data.keys())}")
+            print(f"DEBUG: Structure des données: {type(data)}")
+            
+            # Si rows est vide, essayer d'autres clés possibles
+            if not rows:
+                rows = data.get('anonymized', [])
+                print(f"DEBUG: Essai avec 'anonymized': {len(rows)} lignes")
+            if not rows:
+                rows = data.get('processed_rows', [])
+                print(f"DEBUG: Essai avec 'processed_rows': {len(rows)} lignes")
+            if not rows:
+                rows = data.get('data', [])
+                print(f"DEBUG: Essai avec 'data': {len(rows)} lignes")
+            
+        else:
+            # Fichier en session - lire depuis la session
+            session_data = request.session.get('anonymization_data', {})
+            print(f"DEBUG: Données de session - Présentes: {bool(session_data)}")
+            
+            if not session_data:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Aucune donnée trouvée dans la base de données ni dans la session. Le fichier n\'a peut-être pas été exporté.'
+                })
+            
+            headers = session_data.get('headers', [])
+            rows = session_data.get('rows', [])  # Changé de 'anonymized' à 'rows'
+            anonymization_info = session_data.get('anonymization_info', {})
+            
+            print(f"DEBUG: Données de session extraites - Headers: {len(headers)}, Rows: {len(rows)}")
+            print(f"DEBUG: Clés disponibles dans session_data: {list(session_data.keys())}")
+            
+            # Si rows est vide, essayer d'autres clés possibles
+            if not rows:
+                rows = session_data.get('anonymized', [])
+                print(f"DEBUG: Session - Essai avec 'anonymized': {len(rows)} lignes")
+            if not rows:
+                rows = session_data.get('processed_rows', [])
+                print(f"DEBUG: Session - Essai avec 'processed_rows': {len(rows)} lignes")
+            if not rows:
+                rows = session_data.get('data', [])
+                print(f"DEBUG: Session - Essai avec 'data': {len(rows)} lignes")
+        
+        # Vérifier que nous avons des données
+        if not headers or not rows:
+            return JsonResponse({
+                'success': False,
+                'error': f'Aucune donnée à afficher. Headers: {len(headers)}, Rows: {len(rows)}'
+            })
+        
+        # Créer l'aperçu HTML
+        preview_html = '<div class="space-y-4">'
+        
+        # Informations sur l'anonymisation
+        if anonymization_info:
+            preview_html += '<div class="bg-blue-50 p-3 rounded border">'
+            preview_html += '<h4 class="font-medium text-blue-900 mb-2">📊 Informations d\'anonymisation</h4>'
+            preview_html += '<div class="text-sm text-blue-800">'
+            
+            anonymized_fields = anonymization_info.get("anonymized_fields", [])
+            preserved_fields = anonymization_info.get("preserved_fields", [])
+            method = anonymization_info.get("method", "Non spécifiée")
+            
+            preview_html += f'<p><strong>Champs anonymisés:</strong> {len(anonymized_fields)}</p>'
+            preview_html += f'<p><strong>Champs préservés:</strong> {len(preserved_fields)}</p>'
+            preview_html += f'<p><strong>Méthode:</strong> {method}</p>'
+            
+            if anonymized_fields:
+                preview_html += f'<p><strong>Champs anonymisés:</strong> {", ".join(anonymized_fields[:5])}'
+                if len(anonymized_fields) > 5:
+                    preview_html += f'... (+{len(anonymized_fields) - 5} autres)'
+                preview_html += '</p>'
+            
+            preview_html += '</div></div>'
+        
+        # Tableau des données
+        preview_html += '<div class="overflow-x-auto">'
+        preview_html += '<table class="min-w-full border border-gray-300">'
+        
+        # En-têtes
+        preview_html += '<thead><tr class="bg-gray-100">'
+        for header in headers:
+            # Échapper les caractères spéciaux pour éviter les problèmes HTML
+            safe_header = str(header).replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+            preview_html += f'<th class="border border-gray-300 px-3 py-2 text-left text-sm font-medium">{safe_header}</th>'
+        preview_html += '</tr></thead>'
+        
+        # Lignes (limitées à 10 pour l'aperçu)
+        preview_html += '<tbody>'
+        for i, row in enumerate(rows[:10]):
+            row_class = 'bg-white' if i % 2 == 0 else 'bg-gray-50'
+            preview_html += f'<tr class="{row_class}">'
+            for cell in row:
+                # Échapper les caractères spéciaux
+                safe_cell = str(cell).replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+                preview_html += f'<td class="border border-gray-300 px-3 py-2 text-sm">{safe_cell}</td>'
+            preview_html += '</tr>'
+        preview_html += '</tbody>'
+        preview_html += '</table>'
+        
+        if len(rows) > 10:
+            preview_html += f'<p class="text-sm text-gray-600 mt-2">Aperçu des 10 premières lignes sur {len(rows)} lignes totales</p>'
+        
+        preview_html += '</div>'
+        preview_html += '</div>'
+        
+        return JsonResponse({
+            'success': True,
+            'content': preview_html
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Erreur dans preview_file: {str(e)}")
+        print(traceback.format_exc())
+        return JsonResponse({
+            'success': False,
+            'error': f'Erreur serveur: {str(e)}'
+        })
+
+@login_required
+def historique_view(request):
+    """
+    Vue dédiée pour afficher l'historique des fichiers anonymisés
+    """
+    # Récupérer tous les fichiers de l'utilisateur
+    fichiers = Fichier.objects.filter(utilisateur=request.user).order_by('-date_import')
+    
+    # Calculer les statistiques
+    total_fichiers = fichiers.count()
+    fichiers_anonymises = fichiers.filter(statut='Anonymisé').count()
+    fichiers_importes = fichiers.filter(statut='Importé').count()
+    
+    context = {
+        'fichiers': fichiers,
+        'total_fichiers': total_fichiers,
+        'fichiers_anonymises': fichiers_anonymises,
+        'fichiers_importes': fichiers_importes,
+        'show_historique_only': True,  # Flag pour indiquer qu'on affiche seulement l'historique
+    }
+    
+    return render(request, 'medicanon/historique.html', context)
+
+@login_required
+def test_preview(request):
+    """
+    Vue de test pour vérifier que l'URL preview_file fonctionne
+    """
+    return JsonResponse({
+        'success': True,
+        'message': 'Test preview fonctionne correctement'
+    })
 

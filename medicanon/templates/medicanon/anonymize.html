@@ -109,53 +109,49 @@
             </div>
         </div>
 
+        {% if uploaded_file %}
+        <!-- Bloc fichier importé + bouton Annuler -->
+        <div class="flex items-center justify-center mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span class="text-sm text-green-700 font-medium">{{ uploaded_file.nom_fichier }}</span>
+            <span class="text-xs text-green-600 ml-2">({{ uploaded_file.extension|upper }})</span>
+            <button type="button" id="cancel-upload" class="ml-3 text-red-500 hover:text-red-700 text-lg"
+                onclick="window.location.href='?step=1'">×</button>
+        </div>
+        <div class="mt-6 space-y-2">
+            <button type="button" id="next-step" 
+                class="w-full sm:w-auto bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors font-medium ml-0 sm:ml-2"
+                data-fichier-id="{{ uploaded_file.id }}">
+                ➡️ Passer à l'étape suivante
+            </button>
+        </div>
+        {% else %}
         <!-- Zone de dépôt améliorée -->
         <form id="upload-form" method="post" enctype="multipart/form-data"
-    class="relative border-2 border-dashed border-medic-blue rounded-xl p-8 text-center hover:bg-gray-50 transition-all duration-200">
-    {% csrf_token %}
-    <input type="hidden" name="step" value="{{ step|default:1 }}">
-    
-    <!-- CORRECTION: Enlever required et hidden, utiliser opacity et position -->
-    <input type="file" name="fichier" id="file-input" accept=".csv,.pdf,.docx" 
-           style="position: absolute; opacity: 0; width: 1px; height: 1px; overflow: hidden;">
-    
-    <div id="upload-icon" class="mb-4">
-        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-        </svg>
-    </div>
-    
-    <p id="dropzone-text" class="text-lg font-medium text-gray-700 mb-2">
-        Glissez-déposez votre fichier ici
-    </p>
-    <p class="text-sm text-gray-500 mb-4">ou cliquez pour sélectionner un fichier</p>
-    
-    {% if uploaded_file %}
-    <div class="flex items-center justify-center mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-        <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <span class="text-sm text-green-700 font-medium">{{ uploaded_file.nom_fichier }}</span>
-        <span class="text-xs text-green-600 ml-2">({{ uploaded_file.extension|upper }})</span>
-        <button type="button" id="cancel-upload" class="ml-3 text-red-500 hover:text-red-700 text-lg">×</button>
-    </div>
-    {% endif %}
-    
-    <div class="mt-6 space-y-2">
-        <button type="submit" id="submit-btn" 
-                class="w-full sm:w-auto bg-medic-blue text-white px-6 py-3 rounded-lg hover:bg-medic-blue-dark transition-colors font-medium">
-            📤 Importer le fichier
-        </button>
-        
-        {% if uploaded_file %}
-        <button type="button" id="next-step" 
-            class="w-full sm:w-auto bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors font-medium ml-0 sm:ml-2"
-            data-fichier-id="{{ uploaded_file.id }}">
-            ➡️ Passer à l'étape suivante
-        </button>
+            class="relative border-2 border-dashed border-medic-blue rounded-xl p-8 text-center hover:bg-gray-50 transition-all duration-200">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="{{ step|default:1 }}">
+            <input type="file" name="fichier" id="file-input" accept=".csv,.pdf,.docx" 
+                style="position: absolute; opacity: 0; width: 1px; height: 1px; overflow: hidden;">
+            <div id="upload-icon" class="mb-4">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            </div>
+            <p id="dropzone-text" class="text-lg font-medium text-gray-700 mb-2">
+                Glissez-déposez votre fichier ici
+            </p>
+            <p class="text-sm text-gray-500 mb-4">ou cliquez pour sélectionner un fichier</p>
+            <div class="mt-6 space-y-2">
+                <button type="submit" id="submit-btn" 
+                        class="w-full sm:w-auto bg-medic-blue text-white px-6 py-3 rounded-lg hover:bg-medic-blue-dark transition-colors font-medium">
+                    📤 Importer le fichier
+                </button>
+            </div>
+        </form>
         {% endif %}
-    </div>
-</form>
         <!-- Conseils de sécurité -->
         <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <h3 class="text-sm font-medium text-yellow-800 mb-2">🔒 Conseils de sécurité :</h3>
@@ -590,7 +586,7 @@
                         </button>
                         
                         <!-- Lien de téléchargement direct -->
-                        <a href="{% url 'telecharger_fichier' fichier_id %}" 
+                        <a href="{% url 'download_hybrid' fichier_id %}" 
                             class="block w-full text-center bg-medic-blue text-white py-3 px-4 rounded-lg hover:bg-medic-blue-dark transition-colors font-medium">
                             📥 Télécharger maintenant
                         </a>
@@ -664,9 +660,9 @@
                                     <svg class="w-5 h-5 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                     </svg>
-                                    <div>
+                                    <div class="ml-4">
                                         <div class="text-sm font-medium text-gray-900">{{ fichier.nom_fichier }}</div>
-                                        <div class="text-xs text-gray-500">{{ fichier.nom_fichier|length }} caractères</div>
+                                        <div class="text-sm text-gray-500">{{ fichier.nombre_lignes }} lignes, {{ fichier.nombre_colonnes }} colonnes</div>
                                     </div>
                                 </div>
                             </td>
@@ -692,14 +688,19 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                <a href="{% url 'telecharger_fichier' fichier.id %}" 
-                                    class="inline-flex items-center px-3 py-1 border border-transparent text-xs leading-4 font-medium rounded-md text-white bg-medic-blue hover:bg-medic-blue-dark transition-colors">
-                                    📥 Télécharger
-                                </a>
-                                <a href="{% url 'anonymize_result' fichier.id %}" 
-                                    class="inline-flex items-center px-3 py-1 border border-gray-300 text-xs leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                                    👁️ Explorer
-                                </a>
+                                <div class="flex space-x-2">
+                                    <!-- Téléchargement hybride -->
+                                    <a href="{% url 'download_hybrid' fichier.id %}" 
+                                       class="text-medic-blue hover:text-medic-blue-dark text-sm font-medium">
+                                        📥 Télécharger
+                                    </a>
+                                    
+                                    <!-- Aperçu/Explorer -->
+                                    <button onclick="showFilePreview('{{ fichier.id }}', '{{ fichier.nom_fichier }}')" 
+                                            class="text-gray-600 hover:text-gray-800 text-sm font-medium">
+                                        👁️ Explorer
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         {% endif %}
@@ -732,9 +733,7 @@
             </div>
             <div class="bg-green-50 p-4 rounded-lg border border-green-200">
                 <h3 class="text-sm font-medium text-green-800">✅ Fichiers anonymisés</h3>
-                <p class="text-2xl font-bold text-green-900">
-                    {% for fichier in fichiers %}{% if fichier.statut == 'Anonymisé' %}{{ forloop.counter }}{% endif %}{% endfor %}
-                </p>
+                <p class="text-2xl font-bold text-green-900">{{ anonymized_count }}</p>
             </div>
             <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
                 <h3 class="text-sm font-medium text-purple-800">📈 Score moyen</h3>
@@ -1048,7 +1047,79 @@ document.addEventListener('DOMContentLoaded', function() {
     // Variables globales pour les autres fonctions
     window.fileSelected = fileSelected;
     window.showToast = showToast;
+    
+    // Déclarer fileSelected comme variable globale si elle n'existe pas
+    if (typeof window.fileSelected === 'undefined') {
+        window.fileSelected = false;
+    }
+});
+
+// Fonctions pour l'aperçu du fichier
+function showFilePreview(fichierId, fileName) {
+    document.getElementById('modalTitle').textContent = 'Aperçu : ' + fileName;
+    document.getElementById('filePreviewModal').classList.remove('hidden');
+    document.getElementById('fileContent').innerHTML = '<p class="text-gray-500">Chargement...</p>';
+    
+    console.log('Tentative de chargement pour fichier ID:', fichierId);
+    
+    // Charger le contenu du fichier via AJAX
+    fetch(`/preview_file/${fichierId}/`)
+        .then(response => {
+            console.log('Réponse reçue:', response.status, response.statusText);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Données reçues:', data);
+            if (data.success) {
+                document.getElementById('fileContent').innerHTML = data.content;
+            } else {
+                document.getElementById('fileContent').innerHTML = '<p class="text-red-500">Erreur : ' + data.error + '</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Erreur AJAX:', error);
+            document.getElementById('fileContent').innerHTML = '<p class="text-red-500">Erreur lors du chargement: ' + error.message + '</p>';
+        });
+}
+
+function closeFilePreview() {
+    document.getElementById('filePreviewModal').classList.add('hidden');
+}
+
+// Fermer la modal en cliquant à l'extérieur
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('filePreviewModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeFilePreview();
+            }
+        });
+    }
 });
 </script>
+
+<!-- Modal pour l'aperçu du fichier -->
+<div id="filePreviewModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Aperçu du fichier</h3>
+                <button onclick="closeFilePreview()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="fileContent" class="max-h-96 overflow-y-auto bg-gray-50 p-4 rounded border">
+                <p class="text-gray-500">Chargement...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 

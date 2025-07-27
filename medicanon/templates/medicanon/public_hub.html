@@ -168,7 +168,7 @@
                                 </svg>
                                 Télécharger
                             </a>
-                            <button class="btn btn-outline btn-sm" onclick="showPreview('{{ fichier.nom_fichier }}')">
+                            <button class="btn btn-outline btn-sm" onclick="showFilePreview('{{ fichier.id }}', '{{ fichier.nom_fichier }}')">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
@@ -230,14 +230,14 @@
                         
                         <div class="flex items-center space-x-2">
                             {% if user.is_authenticated %}
-                                <button class="btn btn-outline btn-sm" onclick="showPreview('{{ fichier.nom_fichier }}')">
+                                <button class="btn btn-outline btn-sm" onclick="showFilePreview('{{ fichier.id }}', '{{ fichier.nom_fichier }}')">
                                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                     </svg>
                                     Aperçu
                                 </button>
-                                <a href="{% url 'telecharger_fichier' fichier.id %}" class="btn btn-primary btn-sm">
+                                <a href="{% url 'download_public_file' fichier.id %}" class="btn btn-primary btn-sm">
                                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-4-4m4 4l4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                     </svg>
@@ -359,6 +359,25 @@
     <p class="text-sm text-neutral-600">
         <span id="results-count">0</span> fichier(s) trouvé(s)
     </p>
+</div>
+
+<!-- Modal pour l'aperçu du fichier -->
+<div id="filePreviewModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Aperçu du fichier</h3>
+                <button onclick="closeFilePreview()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="fileContent" class="max-h-96 overflow-y-auto bg-gray-50 p-4 rounded border">
+                <p class="text-gray-500">Chargement...</p>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -503,25 +522,50 @@ function closeLoginModal() {
     document.getElementById('login-modal').classList.add('hidden');
 }
 
-// Fonction pour afficher l'aperçu d'un fichier
-function showPreview(filename) {
-    // Simuler un aperçu
-    alert(`Aperçu du fichier: ${filename}\n\nCette fonctionnalité sera bientôt disponible pour afficher un aperçu sécurisé du contenu anonymisé.`);
+// Fonctions pour l'aperçu du fichier
+function showFilePreview(fichierId, fileName) {
+    document.getElementById('modalTitle').textContent = 'Aperçu : ' + fileName;
+    document.getElementById('filePreviewModal').classList.remove('hidden');
+    document.getElementById('fileContent').innerHTML = '<p class="text-gray-500">Chargement...</p>';
+    
+    console.log('Tentative de chargement pour fichier ID:', fichierId);
+    
+    // Charger le contenu du fichier via AJAX
+    fetch(`/preview_file/${fichierId}/`)
+        .then(response => {
+            console.log('Réponse reçue:', response.status, response.statusText);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Données reçues:', data);
+            if (data.success) {
+                document.getElementById('fileContent').innerHTML = data.content;
+            } else {
+                document.getElementById('fileContent').innerHTML = '<p class="text-red-500">Erreur : ' + data.error + '</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Erreur AJAX:', error);
+            document.getElementById('fileContent').innerHTML = '<p class="text-red-500">Erreur lors du chargement: ' + error.message + '</p>';
+        });
 }
 
-// Gestion des clics sur les cartes
-document.addEventListener('click', function(e) {
-    if (e.target.closest('.file-card') && !e.target.closest('button') && !e.target.closest('a')) {
-        const card = e.target.closest('.file-card');
-        const filename = card.dataset.filename;
-        showPreview(filename);
-    }
-});
+function closeFilePreview() {
+    document.getElementById('filePreviewModal').classList.add('hidden');
+}
 
 // Fermer la modal en cliquant à l'extérieur
-document.getElementById('login-modal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeLoginModal();
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('filePreviewModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeFilePreview();
+            }
+        });
     }
 });
 

@@ -1,0 +1,211 @@
+{% extends 'medicanon/base.html' %}
+
+{% block title %}Historique{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- En-tête de la page -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">📋 Historique des Fichiers</h1>
+        <p class="text-gray-600">Consultez l'historique de vos fichiers anonymisés et importés</p>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-blue-50 p-6 rounded-lg border border-blue-200">
+            <h3 class="text-sm font-medium text-blue-800">📁 Total des fichiers</h3>
+            <p class="text-2xl font-bold text-blue-900">{{ total_fichiers }}</p>
+        </div>
+        
+        <div class="bg-green-50 p-6 rounded-lg border border-green-200">
+            <h3 class="text-sm font-medium text-green-800">✅ Fichiers anonymisés</h3>
+            <p class="text-2xl font-bold text-green-900">{{ fichiers_anonymises }}</p>
+        </div>
+        
+        <div class="bg-yellow-50 p-6 rounded-lg border border-yellow-200">
+            <h3 class="text-sm font-medium text-yellow-800">📤 Fichiers importés</h3>
+            <p class="text-2xl font-bold text-yellow-900">{{ fichiers_importes }}</p>
+        </div>
+    </div>
+
+    <!-- Tableau des fichiers -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Liste des fichiers</h2>
+        </div>
+        
+        {% if fichiers %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Fichier
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Statut
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Date d'import
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Taille
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for fichier in fichiers %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10">
+                                    <div class="h-10 w-10 rounded-lg bg-medic-blue/10 flex items-center justify-center">
+                                        <svg class="w-5 h-5 text-medic-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">{{ fichier.nom_fichier }}</div>
+                                    <div class="text-sm text-gray-500">{{ fichier.nombre_lignes }} lignes, {{ fichier.nombre_colonnes }} colonnes</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if fichier.statut == 'Anonymisé' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    ✅ Anonymisé
+                                </span>
+                            {% elif fichier.statut == 'Importé' %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    📤 Importé
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    {{ fichier.statut }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ fichier.date_import|date:"d/m/Y H:i" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% if fichier.taille_fichier %}
+                                {{ fichier.taille_fichier|filesizeformat }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                            <div class="flex space-x-2">
+                                <!-- Téléchargement hybride -->
+                                <a href="{% url 'download_hybrid' fichier.id %}" 
+                                   class="text-medic-blue hover:text-medic-blue-dark text-sm font-medium">
+                                    📥 Télécharger
+                                </a>
+                                
+                                <!-- Aperçu/Explorer -->
+                                {% if fichier.statut == 'Anonymisé' %}
+                                <button onclick="showFilePreview('{{ fichier.id }}', '{{ fichier.nom_fichier }}')" 
+                                        class="text-gray-600 hover:text-gray-800 text-sm font-medium">
+                                    👁️ Explorer
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="px-6 py-12 text-center">
+            <div class="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Aucun fichier trouvé</h3>
+            <p class="text-gray-500 mb-6">Vous n'avez pas encore importé ou anonymisé de fichiers.</p>
+            <a href="{% url 'anonymize' %}" class="btn-primary">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Commencer l'anonymisation
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal pour l'aperçu du fichier -->
+<div id="filePreviewModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Aperçu du fichier</h3>
+                <button onclick="closeFilePreview()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="fileContent" class="max-h-96 overflow-y-auto bg-gray-50 p-4 rounded border">
+                <p class="text-gray-500">Chargement...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Fonctions pour l'aperçu du fichier
+function showFilePreview(fichierId, fileName) {
+    document.getElementById('modalTitle').textContent = 'Aperçu : ' + fileName;
+    document.getElementById('filePreviewModal').classList.remove('hidden');
+    document.getElementById('fileContent').innerHTML = '<p class="text-gray-500">Chargement...</p>';
+    
+    console.log('Tentative de chargement pour fichier ID:', fichierId);
+    
+    // Charger le contenu du fichier via AJAX
+    fetch(`/preview_file/${fichierId}/`)
+        .then(response => {
+            console.log('Réponse reçue:', response.status, response.statusText);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Données reçues:', data);
+            if (data.success) {
+                document.getElementById('fileContent').innerHTML = data.content;
+            } else {
+                document.getElementById('fileContent').innerHTML = '<p class="text-red-500">Erreur : ' + data.error + '</p>';
+            }
+        })
+        .catch(error => {
+            console.error('Erreur AJAX:', error);
+            document.getElementById('fileContent').innerHTML = '<p class="text-red-500">Erreur lors du chargement: ' + error.message + '</p>';
+        });
+}
+
+function closeFilePreview() {
+    document.getElementById('filePreviewModal').classList.add('hidden');
+}
+
+// Fermer la modal en cliquant à l'extérieur
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('filePreviewModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeFilePreview();
+            }
+        });
+    }
+});
+</script>
+{% endblock %} 
