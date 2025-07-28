@@ -1,0 +1,9 @@
+Nom,Prénom,Sexe,Âge,Commune,Date_Consultation,Diagnostic,Prescription,Hôpital
+Kane,Adama,F,34,Saint-Louis,2025-07-01,Tuberculose,Rifampicine,Hôpital régional de Saint-Louis
+Fall,Abdoulaye,M,48,Mbour,2025-07-03,VIH,Antirétroviraux,Centre de traitement ambulatoire Mbour
+Camara,Khady,F,25,Fatick,2025-07-05,Infection urinaire,Ciprofloxacine,Centre de santé de Fatick
+Toure,Alioune,M,39,Bambey,2025-07-06,Diabète type 1,Insuline,Hôpital Alioune Diop de Bambey
+Faye,Sokhna,F,42,Tambacounda,2025-07-08,Hypertension,Lisinopril,Hôpital régional de Tambacounda
+Cissé,Binta,F,31,Kaffrine,2025-07-10,Gastrite,Oméprazole,Centre de santé de Kaffrine
+Mbaye,Pape,M,55,Richard-Toll,2025-07-12,Cirrhose hépatique,Spironolactone,Centre de santé de Richard-Toll
+Sow,Aissatou,F,28,Bignona,2025-07-14,Asthme,Salbutamol,Poste de santé de Bignona

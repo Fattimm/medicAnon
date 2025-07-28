@@ -1079,28 +1079,68 @@ def anonymize(request):
 
                 fichier_instance = get_object_or_404(Fichier, id=fichier_id, utilisateur=request.user)
                 
-                # 1. Stocker les données anonymisées binaires dans le modèle Fichier
+                # === CORRECTION : Fermer proprement le fichier avant manipulation ===
+                # 1. S'assurer que le fichier est fermé
+                if fichier_instance.fichier:
+                    try:
+                        # Fermer le fichier s'il est ouvert
+                        fichier_instance.fichier.close()
+                    except:
+                        pass  # Ignorer si déjà fermé
+                
+                # 2. Stocker les données anonymisées binaires AVANT de toucher au fichier physique
                 anonymization_info = {
                     'anonymized_fields': session_data['selected_ipi'],
                     'preserved_fields': [h for h in session_data['headers'] if h not in session_data['selected_ipi']],
                     'methods_used': session_data['methods']
                 }
+                
+                # Stocker les données complètes
                 fichier_instance.store_donnees_completes(
                     session_data['headers'], session_data['anonymized'], anonymization_info
                 )
 
-                # 2. Supprimer le fichier physique original après anonymisation
-                if fichier_instance.fichier:
-                    fichier_instance.fichier.delete(save=False)
-                    fichier_instance.fichier = None
-
-                # 3. Mettre à jour les métriques du fichier
+                # 3. Mettre à jour les métriques AVANT la suppression du fichier
                 fichier_instance.nombre_lignes = len(session_data['original'])
                 fichier_instance.nombre_colonnes = len(session_data['headers'])
                 fichier_instance.partage = request.POST.get('share_hub') == '1'
+                fichier_instance.statut = 'Anonymisé'  # S'assurer que le statut est mis à jour
+                
+                # 4. Sauvegarder AVANT de supprimer le fichier
                 fichier_instance.save()
 
-                # 4. Créer l'historique et les rapports associés
+                # 5. Supprimer le fichier physique original APRÈS sauvegarde
+                if fichier_instance.fichier:
+                    try:
+                        # Obtenir le chemin du fichier
+                        file_path = fichier_instance.fichier.path
+                        
+                        # Fermer à nouveau pour être sûr
+                        fichier_instance.fichier.close()
+                        
+                        # Supprimer le fichier du système de stockage Django
+                        fichier_instance.fichier.delete(save=False)
+                        
+                        # Mettre à jour le champ fichier à None
+                        fichier_instance.fichier = None
+                        fichier_instance.save()
+                        
+                        # Optionnel : tentative de suppression manuelle si le fichier existe encore
+                        import os
+                        if os.path.exists(file_path):
+                            try:
+                                os.remove(file_path)
+                                print(f"Fichier supprimé manuellement: {file_path}")
+                            except OSError as e:
+                                print(f"Impossible de supprimer manuellement le fichier: {e}")
+                                # On continue quand même, ce n'est pas critique
+                        
+                    except Exception as file_error:
+                        print(f"Erreur lors de la suppression du fichier: {file_error}")
+                        # On continue le processus même si la suppression échoue
+                        # Le fichier sera nettoyé plus tard ou manuellement
+
+                # 6. Créer l'historique et les rapports
                 historique = Historique.objects.create(
                     fichier=fichier_instance,
                     utilisateur=request.user,
@@ -1108,21 +1148,34 @@ def anonymize(request):
                     méthode_anonymisation=", ".join([f"{f}: {m}" for f, m in session_data['methods'].items()]),
                     statut='Terminé'
                 )
-                Métriques.objects.create(
+                
+                # 7. Créer les métriques
+                metriques_instance = Métriques.objects.create(
                     historique=historique,
                     lignes_traitees=fichier_instance.nombre_lignes,
                     colonnes_anonymisees=len(session_data['selected_ipi']),
-                    taux_anonymisation=(len(session_data['selected_ipi']) / fichier_instance.nombre_colonnes) * 100,
+                    taux_anonymisation=(len(session_data['selected_ipi']) / fichier_instance.nombre_colonnes) * 100 if fichier_instance.nombre_colonnes > 0 else 0,
                     score_securite=calculate_advanced_security_score(session_data['selected_ipi'], session_data['methods'])
                 )
-                RapportConformité.objects.create(
-                    historique=historique,
-                    analyse_risques="Analyse des risques effectuée.",
-                    recommandations="Traitement conforme aux standards.",
-                    conformite="Conforme RGPD/CDP"
+
+                # 8. Créer le rapport de conformité
+                report_data = create_compliance_report(
+                    fichier=fichier_instance,
+                    selected_ipi=session_data['selected_ipi'],
+                    methods=session_data['methods'],
+                    metrics={
+                        'taux_anonymisation': metriques_instance.taux_anonymisation
+                    }
                 )
 
-                # 5. Nettoyer la session
+                RapportConformité.objects.create(
+                    historique=historique,
+                    analyse_risques=report_data['risk_analysis'],
+                    recommandations=report_data['recommendations'],
+                    conformite=report_data['conformity_level']
+                )
+
+                # 9. Nettoyer la session
                 for key in list(request.session.keys()):
                     if key.startswith(('uploaded_file', 'selected_ipi', 'methods', 'headers', 'original', 'anonymized')):
                         del request.session[key]
@@ -1131,8 +1184,102 @@ def anonymize(request):
                 return redirect(reverse('anonymize') + f'?step=5')
 
             except Exception as e:
+                import traceback
+                print(f"Erreur détaillée: {traceback.format_exc()}")
                 messages.error(request, f"Erreur critique lors de la sauvegarde finale : {str(e)}")
                 return redirect('anonymize')
+        # elif 'from_export' in request.POST:
+        #     fichier_id = request.POST.get('fichier_id')
+        #     if not fichier_id:
+        #         messages.error(request, "Aucun fichier sélectionné pour la sauvegarde.")
+        #         return redirect('anonymize')
+
+        #     try:
+        #         # Récupérer toutes les données nécessaires depuis la session
+        #         session_data = {
+        #             'selected_ipi': request.session.get('selected_ipi', []),
+        #             'methods': request.session.get('methods', {}),
+        #             'headers': request.session.get('headers', []),
+        #             'original': request.session.get('original', []),
+        #             'anonymized': request.session.get('anonymized', [])
+        #         }
+        #         if not all(session_data.values()):
+        #             messages.error(request, "Votre session a expiré. Veuillez recommencer le processus.")
+        #             return redirect('anonymize')
+
+        #         fichier_instance = get_object_or_404(Fichier, id=fichier_id, utilisateur=request.user)
+                
+        #         # # 1. Stocker les données anonymisées binaires dans le modèle Fichier
+        #         # anonymization_info = {
+        #         #     'anonymized_fields': session_data['selected_ipi'],
+        #         #     'preserved_fields': [h for h in session_data['headers'] if h not in session_data['selected_ipi']],
+        #         #     'methods_used': session_data['methods']
+        #         # }
+        #         # fichier_instance.store_donnees_completes(
+        #         #     session_data['headers'], session_data['anonymized'], anonymization_info
+        #         # )
+
+        #         # # 2. Supprimer le fichier physique original après anonymisation
+        #         # if fichier_instance.fichier:
+        #         #     fichier_instance.fichier.delete(save=False)
+        #         #     fichier_instance.fichier = None
+
+        #         # # 3. Mettre à jour les métriques du fichier
+        #         # fichier_instance.nombre_lignes = len(session_data['original'])
+        #         # fichier_instance.nombre_colonnes = len(session_data['headers'])
+        #         # fichier_instance.partage = request.POST.get('share_hub') == '1'
+        #         # fichier_instance.save()
+
+        #         # 4. Créer l'historique et les rapports associés
+        #         historique = Historique.objects.create(
+        #             fichier=fichier_instance,
+        #             utilisateur=request.user,
+        #             partage=fichier_instance.partage,
+        #             méthode_anonymisation=", ".join([f"{f}: {m}" for f, m in session_data['methods'].items()]),
+        #             statut='Terminé'
+        #         )
+        #         # Métriques.objects.create(
+        #         #     historique=historique,
+        #         #     lignes_traitees=fichier_instance.nombre_lignes,
+        #         #     colonnes_anonymisees=len(session_data['selected_ipi']),
+        #         #     taux_anonymisation=(len(session_data['selected_ipi']) / fichier_instance.nombre_colonnes) * 100,
+        #         #     score_securite=calculate_advanced_security_score(session_data['selected_ipi'], session_data['methods'])
+        #         # )
+        #         # RapportConformité.objects.create(
+        #         #     historique=historique,
+        #         #     analyse_risques="Analyse des risques effectuée.",
+        #         #     recommandations="Traitement conforme aux standards.",
+        #         #     conformite="Conforme RGPD/CDP"
+        #         # )
+
+        #         report_data = create_compliance_report(
+        #             fichier=fichier_instance,
+        #             selected_ipi=session_data['selected_ipi'],
+        #             methods=session_data['methods'],
+        #             metrics={ # On passe les métriques calculées
+        #                 'taux_anonymisation': metriques_instance.taux_anonymisation
+        #             }
+        #         )
+
+        #         # 4b. Créer l'objet RapportConformité avec les données dynamiques
+        #         RapportConformité.objects.create(
+        #             historique=historique,
+        #             analyse_risques=report_data['risk_analysis'],
+        #             recommandations=report_data['recommendations'],
+        #             conformite=report_data['conformity_level']
+        #         )
+
+        #         # 5. Nettoyer la session
+        #         for key in list(request.session.keys()):
+        #             if key.startswith(('uploaded_file', 'selected_ipi', 'methods', 'headers', 'original', 'anonymized')):
+        #                 del request.session[key]
+                
+        #         messages.success(request, f"Fichier '{fichier_instance.nom_fichier}' anonymisé et sauvegardé avec succès !")
+        #         return redirect(reverse('anonymize') + f'?step=5')
+
+        #     except Exception as e:
+        #         messages.error(request, f"Erreur critique lors de la sauvegarde finale : {str(e)}")
+        #         return redirect('anonymize')
 
     # --- Préparation du contexte pour le rendu du template ---
     if step >= 3:

@@ -93,8 +93,8 @@
                             {{ fichier.date_import|date:"d/m/Y H:i" }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {% if fichier.taille_fichier %}
-                                {{ fichier.taille_fichier|filesizeformat }}
+                            {% if fichier.taille_originale %}
+                                {{ fichier.taille_originale|filesizeformat }}
                             {% else %}
                                 -
                             {% endif %}
